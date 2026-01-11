@@ -100,14 +100,35 @@ def load_json(filepath, default=None):
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
+        except json.JSONDecodeError as e:
+            print(f"FEHLER: JSON-Datei {filepath} ist beschädigt: {e}")
+            print(f"Verwende Default-Werte. Bitte Datei prüfen!")
+            return default
+        except PermissionError:
+            print(f"FEHLER: Keine Leseberechtigung für {filepath}")
+            return default
+        except Exception as e:
+            print(f"FEHLER beim Laden von {filepath}: {e}")
             return default
     return default
 
 def save_json(filepath, data):
     """Speichert Daten in JSON-Datei"""
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except PermissionError:
+        print(f"FEHLER: Keine Schreibberechtigung für {filepath}")
+        raise Exception(f"Kann {filepath} nicht speichern - keine Berechtigung")
+    except OSError as e:
+        print(f"FEHLER: Dateisystem-Fehler beim Speichern von {filepath}: {e}")
+        raise Exception(f"Dateisystem-Fehler beim Speichern: {e}")
+    except TypeError as e:
+        print(f"FEHLER: Daten können nicht als JSON serialisiert werden: {e}")
+        raise Exception(f"Ungültige Daten für JSON-Speicherung: {e}")
+    except Exception as e:
+        print(f"FEHLER beim Speichern von {filepath}: {e}")
+        raise Exception(f"Fehler beim Speichern der Daten: {e}")
 
 def load_projects():
     return load_json(PROJECTS_FILE, [])
@@ -301,10 +322,18 @@ def inject_globals():
 app.jinja_env.globals['get_file_icon'] = get_file_icon
 
 # Upload-Ordner erstellen
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except Exception as e:
+    print(f"KRITISCHER FEHLER: Kann Upload-Ordner nicht erstellen: {e}")
+    print("Die Anwendung kann möglicherweise keine Dateien speichern!")
 
 # Admin initialisieren
-init_admin()
+try:
+    init_admin()
+except Exception as e:
+    print(f"FEHLER bei Admin-Initialisierung: {e}")
+    print("Bitte Admin manuell über users.json erstellen!")
 
 # =============================================================================
 # Auth-Routen
@@ -444,13 +473,27 @@ def download_file(project_id):
     
     # Download-Zähler erhöhen
     project['downloads'] = project.get('downloads', 0) + 1
-    save_projects(projects)
-    
+    try:
+        save_projects(projects)
+    except Exception as e:
+        # Fehler beim Speichern loggen, aber Download trotzdem fortsetzen
+        print(f"Warnung: Download-Zähler konnte nicht gespeichert werden: {e}")
+
     log_activity('download', f'{project.get("title")}', username)
-    
-    return send_from_directory(app.config['UPLOAD_FOLDER'], 
-                              project['filename'],
-                              as_attachment=True)
+
+    # Prüfe ob Datei existiert
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], project['filename'])
+    if not os.path.exists(file_path):
+        flash('Datei wurde nicht gefunden. Möglicherweise wurde sie gelöscht.', 'error')
+        return redirect(url_for('project_detail', project_id=project_id))
+
+    try:
+        return send_from_directory(app.config['UPLOAD_FOLDER'],
+                                  project['filename'],
+                                  as_attachment=True)
+    except Exception as e:
+        flash(f'Fehler beim Herunterladen der Datei: {str(e)}', 'error')
+        return redirect(url_for('project_detail', project_id=project_id))
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -479,7 +522,17 @@ def upload():
                 base, ext = os.path.splitext(filename)
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = f"{base}_{timestamp}{ext}"
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                try:
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                except PermissionError:
+                    flash('Datei konnte nicht gespeichert werden - keine Schreibberechtigung', 'error')
+                    return redirect(url_for('upload'))
+                except OSError as e:
+                    flash(f'Datei konnte nicht gespeichert werden - Dateisystemfehler: {str(e)}', 'error')
+                    return redirect(url_for('upload'))
+                except Exception as e:
+                    flash(f'Fehler beim Hochladen der Datei: {str(e)}', 'error')
+                    return redirect(url_for('upload'))
             else:
                 flash('Dateityp nicht erlaubt', 'error')
                 return redirect(url_for('upload'))
@@ -507,9 +560,19 @@ def upload():
             'downloads': 0,
             'uploaded_by': session.get('user_id')
         }
-        
+
         projects.append(new_project)
-        save_projects(projects)
+        try:
+            save_projects(projects)
+        except Exception as e:
+            flash(f'Fehler beim Speichern des Projekts: {str(e)}', 'error')
+            # Datei wieder löschen falls vorhanden
+            if filename:
+                try:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                except:
+                    pass
+            return redirect(url_for('upload'))
         
         # Token-Belohnung für Upload (außer Admin)
         username = session.get('user_id')
@@ -594,10 +657,23 @@ def admin_delete_project(project_id):
         if project.get('filename'):
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], project['filename'])
             if os.path.exists(filepath):
-                os.remove(filepath)
-        
+                try:
+                    os.remove(filepath)
+                except PermissionError:
+                    flash(f'Warnung: Projektdaten gelöscht, aber Datei konnte nicht entfernt werden (keine Berechtigung)', 'warning')
+                except OSError as e:
+                    flash(f'Warnung: Projektdaten gelöscht, aber Datei konnte nicht entfernt werden: {str(e)}', 'warning')
+                except Exception as e:
+                    flash(f'Warnung: Projektdaten gelöscht, aber Fehler beim Löschen der Datei: {str(e)}', 'warning')
+
         projects = [p for p in projects if p.get('id') != project_id]
-        save_projects(projects)
+
+        try:
+            save_projects(projects)
+        except Exception as e:
+            flash(f'Fehler beim Speichern nach Projekt-Löschung: {str(e)}', 'error')
+            return redirect(url_for('admin_projects'))
+
         log_activity('project_deleted', f'Projekt gelöscht: {project.get("title")}')
         flash('Projekt gelöscht.', 'success')
     else:
@@ -627,7 +703,12 @@ def admin_create_user():
         password = request.form.get('password', '')
         name = request.form.get('name', '').strip()
         role = request.form.get('role', 'user')
-        tokens = int(request.form.get('tokens', settings.get('initial_tokens', 3)))
+
+        try:
+            tokens = int(request.form.get('tokens', settings.get('initial_tokens', 3)))
+        except ValueError:
+            flash('Ungültige Anzahl von Tokens. Bitte eine ganze Zahl eingeben.', 'error')
+            return redirect(url_for('admin_create_user'))
         
         if not username or not password:
             flash('Benutzername und Passwort erforderlich.', 'error')
@@ -649,7 +730,13 @@ def admin_create_user():
             'tokens': 999999 if role == 'admin' else tokens,
             'created': datetime.now().isoformat()
         }
-        save_users(users)
+
+        try:
+            save_users(users)
+        except Exception as e:
+            flash(f'Fehler beim Speichern des Benutzers: {str(e)}', 'error')
+            return redirect(url_for('admin_create_user'))
+
         log_activity('user_created', f'Neuer Benutzer: {username} (Tokens: {tokens})')
         flash(f'Benutzer "{username}" erstellt mit {tokens} Tokens.', 'success')
         return redirect(url_for('admin_users'))
@@ -663,13 +750,23 @@ def admin_create_user():
 @admin_required
 def admin_set_user_tokens(username):
     """Token-Anzahl für Benutzer setzen"""
-    tokens = int(request.form.get('tokens', 0))
+    try:
+        tokens = int(request.form.get('tokens', 0))
+    except ValueError:
+        flash('Ungültige Anzahl von Tokens. Bitte eine ganze Zahl eingeben.', 'error')
+        return redirect(url_for('admin_users'))
     
     users = load_users()
     if username in users and users[username].get('role') != 'admin':
         old_tokens = users[username].get('tokens', 0)
         users[username]['tokens'] = tokens
-        save_users(users)
+
+        try:
+            save_users(users)
+        except Exception as e:
+            flash(f'Fehler beim Speichern der Token-Änderung: {str(e)}', 'error')
+            return redirect(url_for('admin_users'))
+
         log_activity('tokens_adjusted', f'{username}: {old_tokens} → {tokens} Tokens')
         flash(f'Tokens für {username} auf {tokens} gesetzt.', 'success')
     else:
@@ -688,10 +785,16 @@ def admin_delete_user(username):
     users = load_users()
     if username in users:
         del users[username]
-        save_users(users)
+
+        try:
+            save_users(users)
+        except Exception as e:
+            flash(f'Fehler beim Löschen des Benutzers: {str(e)}', 'error')
+            return redirect(url_for('admin_users'))
+
         log_activity('user_deleted', f'Benutzer gelöscht: {username}')
         flash('Benutzer gelöscht.', 'success')
-    
+
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/aktivitaet')
@@ -737,15 +840,31 @@ def admin_settings():
                 flash('Neues Passwort muss mindestens 6 Zeichen haben.', 'error')
             else:
                 users[session.get('user_id')]['password'] = generate_password_hash(new_password)
-                save_users(users)
+
+                try:
+                    save_users(users)
+                except Exception as e:
+                    flash(f'Fehler beim Speichern des neuen Passworts: {str(e)}', 'error')
+                    return redirect(url_for('admin_settings'))
+
                 log_activity('password_changed', 'Admin-Passwort geändert')
                 flash('Passwort erfolgreich geändert.', 'success')
         
         elif action == 'save_token_settings':
-            settings['initial_tokens'] = int(request.form.get('initial_tokens', 3))
-            settings['download_cost'] = int(request.form.get('download_cost', 1))
-            settings['upload_reward'] = int(request.form.get('upload_reward', 1))
-            save_settings(settings)
+            try:
+                settings['initial_tokens'] = int(request.form.get('initial_tokens', 3))
+                settings['download_cost'] = int(request.form.get('download_cost', 1))
+                settings['upload_reward'] = int(request.form.get('upload_reward', 1))
+            except ValueError:
+                flash('Ungültige Token-Einstellungen. Bitte nur ganze Zahlen eingeben.', 'error')
+                return redirect(url_for('admin_settings'))
+
+            try:
+                save_settings(settings)
+            except Exception as e:
+                flash(f'Fehler beim Speichern der Einstellungen: {str(e)}', 'error')
+                return redirect(url_for('admin_settings'))
+
             log_activity('settings_changed', f'Token-Einstellungen geändert: Start={settings["initial_tokens"]}, Kosten={settings["download_cost"]}, Belohnung={settings["upload_reward"]}')
             flash('Token-Einstellungen gespeichert.', 'success')
         
