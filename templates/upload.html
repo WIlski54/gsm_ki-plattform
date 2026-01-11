@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Projekt hochladen · KI-Projektplattform{% endblock %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<span class="text-zinc-900 font-medium">Projekt hochladen</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 max-w-3xl mx-auto animate-fade-in">
+    
+    <!-- Header -->
+    <div class="text-center mb-10">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+            <i data-lucide="upload" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-zinc-900 mb-2">
+            Projekt hochladen
+        </h1>
+        <p class="text-zinc-500">
+            Teile dein KI-Projekt mit deinen Kolleg:innen
+        </p>
+    </div>
+    
+    <!-- Upload Form -->
+    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" 
+          x-data="uploadForm()"
+          class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+        
+        <div class="p-6 lg:p-8 space-y-6">
+            
+            <!-- Title -->
+            <div>
+                <label for="title" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Projekttitel <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="title" name="title" required
+                       class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                       placeholder="z.B. Interaktives Periodensystem">
+            </div>
+            
+            <!-- Description -->
+            <div>
+                <label for="description" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Beschreibung
+                </label>
+                <textarea id="description" name="description" rows="4"
+                          class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none"
+                          placeholder="Beschreibe dein Projekt: Was macht es? Für welche Klassenstufe? Welche Features hat es?"></textarea>
+            </div>
+            
+            <!-- Category & Subject -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="category" class="block text-sm font-semibold text-zinc-700 mb-2">
+                        Fachbereich <span class="text-red-500">*</span>
+                    </label>
+                    <select id="category" name="category" required x-model="category" @change="subject = ''"
+                            class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white">
+                        <option value="">Bitte wählen...</option>
+                        {% for cat_id, cat in categories.items() %}
+                        <option value="{{ cat_id }}">{{ cat.icon }} {{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="subject" class="block text-sm font-semibold text-zinc-700 mb-2">
+                        Fach
+                    </label>
+                    <select id="subject" name="subject" x-model="subject"
+                            class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
+                            :disabled="!category">
+                        <option value="">Fach auswählen...</option>
+                        <template x-for="sub in getSubjects()" :key="sub">
+                            <option :value="sub" x-text="sub"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Material Type -->
+            <div>
+                <label class="block text-sm font-semibold text-zinc-700 mb-3">
+                    Materialtyp <span class="text-red-500">*</span>
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {% for mtype in material_types %}
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="material_type" value="{{ mtype.id }}" required
+                               class="peer sr-only" x-model="materialType">
+                        <div class="p-4 rounded-xl border-2 border-zinc-200 text-center transition-all duration-200
+                                    peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:ring-2 peer-checked:ring-indigo-500/20
+                                    hover:border-zinc-300 hover:bg-zinc-50">
+                            <span class="text-3xl block mb-2">{{ mtype.icon }}</span>
+                            <span class="text-sm font-medium text-zinc-700 block leading-tight">{{ mtype.name }}</span>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Author & Tags -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="author" class="block text-sm font-semibold text-zinc-700 mb-2">
+                        Autor:in
+                    </label>
+                    <input type="text" id="author" name="author"
+                           class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                           placeholder="Dein Name (optional)" value="{{ current_user.name if current_user else '' }}">
+                </div>
+                
+                <div>
+                    <label for="tags" class="block text-sm font-semibold text-zinc-700 mb-2">
+                        Tags
+                    </label>
+                    <input type="text" id="tags" name="tags"
+                           class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                           placeholder="z.B. Klasse 9, Säuren, Oberstufe">
+                    <p class="text-xs text-zinc-500 mt-1">Kommagetrennt eingeben</p>
+                </div>
+            </div>
+            
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Projektdatei
+                </label>
+                <div class="relative"
+                     @dragover.prevent="dragOver = true"
+                     @dragleave.prevent="dragOver = false"
+                     @drop.prevent="dragOver = false; fileName = $event.dataTransfer.files[0]?.name || ''; $refs.fileInput.files = $event.dataTransfer.files">
+                    
+                    <input type="file" id="file" name="file" x-ref="fileInput"
+                           @change="fileName = $event.target.files[0]?.name || ''"
+                           class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                           accept=".html,.htm,.css,.js,.py,.zip,.pdf,.md,.txt,.json">
+                    
+                    <div class="border-2 border-dashed rounded-xl p-8 text-center transition-all"
+                         :class="dragOver ? 'border-indigo-500 bg-indigo-50' : 'border-zinc-300 hover:border-zinc-400'">
+                        
+                        <template x-if="!fileName">
+                            <div>
+                                <i data-lucide="cloud-upload" class="w-12 h-12 mx-auto text-zinc-400 mb-3"></i>
+                                <p class="text-zinc-600 font-medium mb-1">Datei hier ablegen oder klicken</p>
+                                <p class="text-xs text-zinc-500">HTML, CSS, JS, Python, ZIP, PDF, Markdown (max. 50 MB)</p>
+                            </div>
+                        </template>
+                        
+                        <template x-if="fileName">
+                            <div class="flex items-center justify-center gap-3">
+                                <i data-lucide="file-check" class="w-8 h-8 text-green-500"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-zinc-900" x-text="fileName"></p>
+                                    <p class="text-xs text-zinc-500">Klicke um zu ändern</p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Divider -->
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-zinc-200"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="px-4 bg-white text-sm text-zinc-500">und/oder</span>
+                </div>
+            </div>
+            
+            <!-- Project URL -->
+            <div>
+                <label for="project_url" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Projekt-URL
+                    <span class="font-normal text-zinc-500">(für Online-Projekte)</span>
+                </label>
+                <div class="space-y-3">
+                    <div class="relative">
+                        <input type="url" id="project_url" name="project_url"
+                               class="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                               placeholder="https://beispiel.onrender.com oder https://github.com/user/repo">
+                        <i data-lucide="link" class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                    </div>
+                    
+                    <!-- URL Type Hints -->
+                    <div class="flex flex-wrap gap-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-100 text-xs text-zinc-600">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            GitHub
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-100 text-xs text-zinc-600">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12.016 2.893l9.07 5.264c.578.336.914.94.914 1.591v8.504c0 .651-.336 1.255-.914 1.591l-9.07 5.264c-.578.336-1.289.336-1.867 0l-9.07-5.264c-.578-.336-.914-.94-.914-1.591V9.748c0-.651.336-1.255.914-1.591l9.07-5.264c.578-.336 1.289-.336 1.867 0z"/></svg>
+                            Render
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-100 text-xs text-zinc-600">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            Vercel
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-100 text-xs text-zinc-600">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            Andere
+                        </span>
+                    </div>
+                    
+                    <p class="text-xs text-zinc-500">
+                        Perfekt für interaktive Web-Apps, GitHub-Repos oder gehostete Projekte
+                    </p>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Submit -->
+        <div class="px-6 lg:px-8 py-4 bg-zinc-50 border-t border-zinc-200 flex items-center justify-between">
+            <a href="{{ url_for('index') }}" class="text-zinc-600 hover:text-zinc-900 font-medium transition-colors">
+                Abbrechen
+            </a>
+            <button type="submit" 
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20">
+                <i data-lucide="upload" class="w-5 h-5"></i>
+                Projekt hochladen
+            </button>
+        </div>
+    </form>
+    
+    <!-- Tips -->
+    <div class="mt-8 p-6 rounded-xl bg-amber-50 border border-amber-200">
+        <div class="flex gap-4">
+            <div class="flex-shrink-0">
+                <i data-lucide="lightbulb" class="w-6 h-6 text-amber-600"></i>
+            </div>
+            <div>
+                <h3 class="font-semibold text-amber-900 mb-2">Tipps für gute Projekte</h3>
+                <ul class="text-sm text-amber-800 space-y-1">
+                    <li>• Beschreibe klar, welches Problem dein Projekt löst</li>
+                    <li>• Gib die Zielgruppe/Klassenstufe an</li>
+                    <li>• Füge aussagekräftige Tags hinzu für bessere Auffindbarkeit</li>
+                    <li>• ZIP-Dateien für Projekte mit mehreren Dateien verwenden</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Kategoriedaten für dynamische Fach-Auswahl
+    const categoriesData = {
+        {% for cat_id, cat in categories.items() %}
+        '{{ cat_id }}': {{ cat.subjects | tojson }},
+        {% endfor %}
+    };
+    
+    function uploadForm() {
+        return {
+            category: '{{ request.args.get("category", "") }}',
+            subject: '',
+            materialType: '',
+            fileName: '',
+            dragOver: false,
+            
+            getSubjects() {
+                if (!this.category) return [];
+                return categoriesData[this.category] || [];
+            }
+        };
+    }
+    
+    lucide.createIcons();
+    
+    // Re-render icons when Alpine updates
+    document.addEventListener('alpine:initialized', () => {
+        setInterval(() => lucide.createIcons(), 500);
+    });
+</script>
+{% endblock %}

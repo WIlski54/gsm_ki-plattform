@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Übersicht · KI-Projektplattform{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 animate-fade-in">
+    
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-8 lg:p-12 mb-10">
+        <!-- Decorative Elements -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+        
+        <div class="relative z-10">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium mb-4">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                Willkommen
+            </span>
+            <h1 class="font-display font-extrabold text-3xl lg:text-4xl text-white mb-3">
+                KI-Projekte für den Unterricht
+            </h1>
+            <p class="text-white/80 text-lg max-w-2xl mb-8">
+                Entdecke und teile innovative KI-gestützte Unterrichtsmaterialien. 
+                Eine Austauschplattform von Kolleg:innen für Kolleg:innen.
+            </p>
+            
+            <!-- Stats -->
+            <div class="flex flex-wrap gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i data-lucide="folder" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-white">{{ stats.total_projects }}</p>
+                        <p class="text-white/60 text-sm">Projekte</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i data-lucide="layout-grid" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-white">{{ stats.categories }}</p>
+                        <p class="text-white/60 text-sm">Fachbereiche</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i data-lucide="download" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-white">{{ stats.total_downloads }}</p>
+                        <p class="text-white/60 text-sm">Downloads</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Categories Grid -->
+    <section class="mb-12">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display font-bold text-xl text-zinc-900">Fachbereiche durchsuchen</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for cat_id, cat in categories.items() %}
+            <a href="{{ url_for('category', category_id=cat_id) }}" 
+               class="group relative overflow-hidden rounded-xl bg-white border border-zinc-200 p-6 card-hover">
+                
+                <!-- Background Accent -->
+                <div class="absolute top-0 right-0 w-24 h-24 bg-{{ cat.color }}-100 rounded-full blur-2xl opacity-50 group-hover:opacity-80 transition-opacity -translate-y-1/2 translate-x-1/2"></div>
+                
+                <div class="relative">
+                    <span class="text-4xl mb-4 block">{{ cat.icon }}</span>
+                    <h3 class="font-display font-bold text-lg text-zinc-900 mb-1 group-hover:text-{{ cat.color }}-600 transition-colors">
+                        {{ cat.name }}
+                    </h3>
+                    <p class="text-sm text-zinc-500 mb-4">{{ cat.description }}</p>
+                    
+                    <div class="flex items-center gap-2 text-sm text-{{ cat.color }}-600 font-medium">
+                        <span>Erkunden</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    
+    <!-- Recent Projects -->
+    {% if recent_projects %}
+    <section>
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display font-bold text-xl text-zinc-900">Neueste Projekte</h2>
+            <a href="#" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                Alle anzeigen
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </a>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for project in recent_projects %}
+            <article class="bg-white rounded-xl border border-zinc-200 overflow-hidden card-hover group">
+                <!-- Project Header -->
+                <div class="p-5 border-b border-zinc-100">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">{{ categories[project.category].icon }}</span>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full tag-{{ categories[project.category].color }}">
+                                {{ project.subcategory or categories[project.category].name }}
+                            </span>
+                        </div>
+                        {% if project.filename %}
+                        <span class="text-lg" title="Mit Download">{{ get_file_icon(project.filename) }}</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-display font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                        {{ project.title }}
+                    </h3>
+                </div>
+                
+                <!-- Project Body -->
+                <div class="p-5">
+                    <p class="text-sm text-zinc-600 line-clamp-3 mb-4">
+                        {{ project.description }}
+                    </p>
+                    
+                    <!-- Tags -->
+                    {% if project.tags %}
+                    <div class="flex flex-wrap gap-1.5 mb-4">
+                        {% for tag in project.tags[:3] %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">{{ tag }}</span>
+                        {% endfor %}
+                        {% if project.tags|length > 3 %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-500">+{{ project.tags|length - 3 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Footer -->
+                    <div class="flex items-center justify-between text-xs text-zinc-500">
+                        <div class="flex items-center gap-1">
+                            <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                            <span>{{ project.author }}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center gap-1">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                {{ project.downloads }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="px-5 py-3 bg-zinc-50 border-t border-zinc-100 flex items-center gap-2">
+                    <a href="{{ url_for('project_detail', project_id=project.id) }}" 
+                       class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-200 transition-colors">
+                        Details
+                    </a>
+                    {% if project.filename %}
+                    <a href="{{ url_for('download_file', project_id=project.id) }}" 
+                       class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        Download
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Re-initialize icons after Alpine.js renders
+    document.addEventListener('alpine:initialized', () => {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

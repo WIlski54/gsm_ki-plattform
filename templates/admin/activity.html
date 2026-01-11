@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Aktivitätslog · Admin{% endblock %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<a href="{{ url_for('admin_dashboard') }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">Admin</a>
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<span class="text-zinc-900 font-medium">Aktivitätslog</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 animate-fade-in">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-zinc-900">Aktivitätslog</h1>
+            <p class="text-zinc-500 mt-1">Alle Aktivitäten auf der Plattform</p>
+        </div>
+        
+        <!-- Filter -->
+        <div class="flex items-center gap-3">
+            <form action="{{ url_for('admin_activity') }}" method="GET" class="flex items-center gap-2">
+                <select name="action" onchange="this.form.submit()"
+                        class="px-4 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">Alle Aktionen</option>
+                    {% for action in all_actions %}
+                    <option value="{{ action }}" {% if action_filter == action %}selected{% endif %}>
+                        {% if action == 'login' %}Anmeldungen
+                        {% elif action == 'logout' %}Abmeldungen
+                        {% elif action == 'download' %}Downloads
+                        {% elif action == 'project_uploaded' %}Uploads
+                        {% elif action == 'project_deleted' %}Gelöschte Projekte
+                        {% elif action == 'user_created' %}Neue Benutzer
+                        {% elif action == 'user_deleted' %}Gelöschte Benutzer
+                        {% elif action == 'password_changed' %}Passwortänderungen
+                        {% elif action == 'login_failed' %}Fehlgeschlagene Logins
+                        {% else %}{{ action }}
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if action_filter %}
+                <a href="{{ url_for('admin_activity') }}" class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    
+    {% if activity %}
+    <!-- Activity Table -->
+    <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-zinc-50 border-b border-zinc-200">
+                        <th class="text-left px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider w-48">Zeitpunkt</th>
+                        <th class="text-left px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Aktion</th>
+                        <th class="text-left px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Details</th>
+                        <th class="text-left px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Benutzer</th>
+                        <th class="text-left px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100">
+                    {% for entry in activity %}
+                    <tr class="hover:bg-zinc-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="text-sm">
+                                <p class="text-zinc-900">{{ entry.timestamp[11:19] if entry.timestamp else '-' }}</p>
+                                <p class="text-xs text-zinc-500">{{ entry.timestamp[:10] if entry.timestamp else '' }}</p>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium
+                                {% if entry.action == 'login' %}bg-emerald-100 text-emerald-700
+                                {% elif entry.action == 'logout' %}bg-zinc-100 text-zinc-700
+                                {% elif entry.action == 'download' %}bg-blue-100 text-blue-700
+                                {% elif entry.action == 'project_uploaded' %}bg-violet-100 text-violet-700
+                                {% elif entry.action == 'project_deleted' %}bg-red-100 text-red-700
+                                {% elif entry.action == 'user_created' %}bg-indigo-100 text-indigo-700
+                                {% elif entry.action == 'user_deleted' %}bg-orange-100 text-orange-700
+                                {% elif entry.action == 'login_failed' %}bg-red-100 text-red-700
+                                {% elif entry.action == 'password_changed' %}bg-amber-100 text-amber-700
+                                {% else %}bg-zinc-100 text-zinc-700{% endif %}">
+                                {% if entry.action == 'login' %}
+                                <i data-lucide="log-in" class="w-3 h-3"></i> Anmeldung
+                                {% elif entry.action == 'logout' %}
+                                <i data-lucide="log-out" class="w-3 h-3"></i> Abmeldung
+                                {% elif entry.action == 'download' %}
+                                <i data-lucide="download" class="w-3 h-3"></i> Download
+                                {% elif entry.action == 'project_uploaded' %}
+                                <i data-lucide="upload" class="w-3 h-3"></i> Upload
+                                {% elif entry.action == 'project_deleted' %}
+                                <i data-lucide="trash-2" class="w-3 h-3"></i> Gelöscht
+                                {% elif entry.action == 'user_created' %}
+                                <i data-lucide="user-plus" class="w-3 h-3"></i> Neuer User
+                                {% elif entry.action == 'user_deleted' %}
+                                <i data-lucide="user-minus" class="w-3 h-3"></i> User gelöscht
+                                {% elif entry.action == 'login_failed' %}
+                                <i data-lucide="alert-triangle" class="w-3 h-3"></i> Login fehlgeschlagen
+                                {% elif entry.action == 'password_changed' %}
+                                <i data-lucide="key" class="w-3 h-3"></i> Passwort geändert
+                                {% else %}
+                                <i data-lucide="activity" class="w-3 h-3"></i> {{ entry.action }}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-sm text-zinc-600 max-w-md truncate">{{ entry.details or '-' }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-medium text-zinc-900">{{ entry.user or '-' }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm text-zinc-500 font-mono">{{ entry.ip or '-' }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% else %}
+    
+    <!-- Empty State -->
+    <div class="bg-white rounded-xl border border-zinc-200 p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-zinc-100 flex items-center justify-center">
+            <i data-lucide="activity" class="w-8 h-8 text-zinc-400"></i>
+        </div>
+        <h3 class="font-display font-bold text-xl text-zinc-900 mb-2">Keine Aktivitäten</h3>
+        <p class="text-zinc-500">
+            {% if action_filter %}
+            Keine Aktivitäten für diesen Filter gefunden.
+            {% else %}
+            Noch keine Aktivitäten aufgezeichnet.
+            {% endif %}
+        </p>
+    </div>
+    
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

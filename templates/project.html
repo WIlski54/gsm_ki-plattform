@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} · KI-Projektplattform{% endblock %}
+
+{% set cat = categories[project.category] %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<a href="{{ url_for('category', category_id=project.category) }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">
+    {{ cat.name }}
+</a>
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<span class="text-zinc-900 font-medium truncate max-w-xs">{{ project.title }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 max-w-5xl mx-auto animate-fade-in">
+    
+    <!-- Back Link -->
+    <a href="{{ url_for('category', category_id=project.category) }}" 
+       class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-900 transition-colors mb-6 group">
+        <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+        Zurück zu {{ cat.name }}
+    </a>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        
+        <!-- Preview Section (Left/Main) -->
+        <div class="lg:col-span-3">
+            {% if project.filename and project.filename.lower().endswith('.pdf') %}
+            <!-- PDF Preview -->
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
+                    <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                        <i data-lucide="eye" class="w-5 h-5 text-{{ cat.color }}-600"></i>
+                        Vorschau
+                    </h2>
+                    <span class="text-xs text-zinc-500 bg-zinc-100 px-2 py-1 rounded-full">Seite 1</span>
+                </div>
+                
+                <!-- PDF Canvas Container -->
+                <div class="relative bg-zinc-100 flex items-center justify-center" style="min-height: 500px;">
+                    <!-- Loading State -->
+                    <div id="pdf-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-100 z-10">
+                        <div class="w-12 h-12 border-4 border-zinc-300 border-t-{{ cat.color }}-600 rounded-full animate-spin mb-4"></div>
+                        <p class="text-zinc-500">Vorschau wird geladen...</p>
+                    </div>
+                    
+                    <!-- Error State -->
+                    <div id="pdf-error" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-100 z-10 hidden">
+                        <i data-lucide="alert-circle" class="w-12 h-12 text-zinc-400 mb-4"></i>
+                        <p class="text-zinc-500">Vorschau konnte nicht geladen werden</p>
+                    </div>
+                    
+                    <!-- PDF Canvas -->
+                    <canvas id="pdf-canvas" class="max-w-full shadow-lg"></canvas>
+                </div>
+                
+                <!-- Preview Hint -->
+                <div class="px-6 py-4 bg-amber-50 border-t border-amber-200">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                        <div class="text-sm text-amber-800">
+                            <p class="font-medium">Dies ist nur eine Vorschau</p>
+                            <p class="text-amber-700">Für die vollständige Datei nutze den Download-Button.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Non-PDF or no file -->
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="p-12 text-center">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-zinc-100 flex items-center justify-center">
+                        {% if project.filename %}
+                        <span class="text-4xl">{{ get_file_icon(project.filename) }}</span>
+                        {% else %}
+                        <i data-lucide="file-x" class="w-10 h-10 text-zinc-400"></i>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-display font-bold text-lg text-zinc-900 mb-2">
+                        {% if project.filename %}
+                        Keine Vorschau verfügbar
+                        {% else %}
+                        Keine Datei vorhanden
+                        {% endif %}
+                    </h3>
+                    <p class="text-zinc-500">
+                        {% if project.filename %}
+                        Für diesen Dateityp gibt es keine Vorschau. Lade die Datei herunter, um sie anzusehen.
+                        {% else %}
+                        Dieses Projekt hat keine Datei zum Download.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Info Section (Right/Sidebar) -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Project Card -->
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                
+                <!-- Header -->
+                <div class="relative overflow-hidden bg-gradient-to-br from-{{ cat.color }}-500 to-{{ cat.color }}-700 p-6">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-2 mb-3 flex-wrap">
+                            <span class="text-3xl">{{ cat.icon }}</span>
+                            {% if project.subject %}
+                            <span class="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-medium">
+                                {{ project.subject }}
+                            </span>
+                            {% endif %}
+                            {% if project.material_type %}
+                            <span class="px-2 py-0.5 rounded-full bg-white/30 text-white text-xs font-medium">
+                                {% for mtype in material_types %}
+                                    {% if mtype.id == project.material_type %}
+                                        {{ mtype.icon }} {{ mtype.name }}
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <h1 class="font-display font-extrabold text-xl text-white">
+                            {{ project.title }}
+                        </h1>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="p-6">
+                    
+                    <!-- Meta Info -->
+                    <div class="space-y-3 mb-6">
+                        <div class="flex items-center gap-3 text-sm">
+                            <i data-lucide="user" class="w-4 h-4 text-zinc-400"></i>
+                            <span class="text-zinc-600">{{ project.author or 'Anonym' }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-sm">
+                            <i data-lucide="calendar" class="w-4 h-4 text-zinc-400"></i>
+                            <span class="text-zinc-600">{{ project.created[:10] if project.created else 'Unbekannt' }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-sm">
+                            <i data-lucide="download" class="w-4 h-4 text-zinc-400"></i>
+                            <span class="text-zinc-600">{{ project.downloads }} Downloads</span>
+                        </div>
+                        {% if project.filename %}
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="text-lg">{{ get_file_icon(project.filename) }}</span>
+                            <span class="text-zinc-600 truncate">{{ project.filename.rsplit('_', 1)[0] if '_' in project.filename else project.filename }}</span>
+                        </div>
+                        {% endif %}
+                        {% if project.project_url %}
+                        <div class="flex items-center gap-3 text-sm">
+                            <i data-lucide="external-link" class="w-4 h-4 text-zinc-400"></i>
+                            <a href="{{ project.project_url }}" target="_blank" rel="noopener" 
+                               class="text-{{ cat.color }}-600 hover:text-{{ cat.color }}-700 hover:underline truncate">
+                                {{ project.project_url | truncate(40) }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="mb-6">
+                        <h2 class="font-semibold text-zinc-900 mb-2">Beschreibung</h2>
+                        <p class="text-sm text-zinc-600 whitespace-pre-line">{{ project.description or 'Keine Beschreibung vorhanden.' }}</p>
+                    </div>
+                    
+                    <!-- Tags -->
+                    {% if project.tags %}
+                    <div class="mb-6">
+                        <h2 class="font-semibold text-zinc-900 mb-2">Tags</h2>
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for tag in project.tags %}
+                            <span class="px-2 py-1 rounded-md bg-zinc-100 text-zinc-600 text-xs font-medium">
+                                {{ tag }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                </div>
+                
+                <!-- Actions -->
+                <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-200 space-y-3">
+                    
+                    <!-- Online öffnen Button (wenn URL vorhanden) -->
+                    {% if project.project_url %}
+                    <a href="{{ project.project_url }}" target="_blank" rel="noopener"
+                       class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-500 hover:to-indigo-500 transition-all shadow-lg shadow-blue-500/20">
+                        <i data-lucide="external-link" class="w-5 h-5"></i>
+                        Online öffnen
+                    </a>
+                    {% endif %}
+                    
+                    {% if project.filename %}
+                        {% if is_admin %}
+                        <!-- Admin: Unbegrenzter Zugang -->
+                        <a href="{{ url_for('download_file', project_id=project.id) }}" 
+                           class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-{{ cat.color }}-600 to-{{ cat.color }}-700 text-white font-semibold hover:from-{{ cat.color }}-500 hover:to-{{ cat.color }}-600 transition-all shadow-lg shadow-{{ cat.color }}-500/20">
+                            <i data-lucide="download" class="w-5 h-5"></i>
+                            Jetzt herunterladen
+                            <span class="text-xs opacity-75">(Admin)</span>
+                        </a>
+                        {% elif can_user_download %}
+                        <!-- User mit genug Tokens -->
+                        <a href="{{ url_for('download_file', project_id=project.id) }}" 
+                           class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-{{ cat.color }}-600 to-{{ cat.color }}-700 text-white font-semibold hover:from-{{ cat.color }}-500 hover:to-{{ cat.color }}-600 transition-all shadow-lg shadow-{{ cat.color }}-500/20">
+                            <i data-lucide="download" class="w-5 h-5"></i>
+                            Jetzt herunterladen
+                            <span class="ml-1 px-2 py-0.5 rounded-full bg-white/20 text-xs">🪙 -{{ token_settings.download_cost }}</span>
+                        </a>
+                        <p class="text-xs text-center text-zinc-500">
+                            Du hast {{ user_tokens }} Tokens · Nach Download: {{ user_tokens - token_settings.download_cost }} Tokens
+                        </p>
+                        {% else %}
+                        <!-- User ohne genug Tokens -->
+                        <div class="w-full flex flex-col items-center justify-center gap-2 px-6 py-4 rounded-xl bg-red-50 border border-red-200 text-red-600">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                                <span class="font-semibold">Nicht genug Tokens</span>
+                            </div>
+                            <p class="text-sm text-red-500">
+                                Du benötigst {{ token_settings.download_cost }} Token, hast aber nur {{ user_tokens }}.
+                            </p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                            <p class="text-sm text-amber-800 text-center">
+                                <span class="font-semibold">💡 Tipp:</span> Lade ein eigenes Projekt hoch und verdiene 
+                                <span class="font-bold">+{{ token_settings.upload_reward }} Token</span>!
+                            </p>
+                            <a href="{{ url_for('upload') }}" 
+                               class="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 transition-colors">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                Projekt hochladen
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <!-- Hinweis wenn weder Datei noch URL -->
+                    {% if not project.filename and not project.project_url %}
+                    <div class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-zinc-100 text-zinc-500">
+                        <i data-lucide="file-x" class="w-5 h-5"></i>
+                        Keine Datei oder URL verfügbar
+                    </div>
+                    {% endif %}
+                    
+                    <button onclick="navigator.share?.({ title: '{{ project.title }}', url: window.location.href }) || navigator.clipboard.writeText(window.location.href).then(() => alert('Link kopiert!'))"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-300 text-zinc-700 font-medium hover:bg-zinc-100 transition-colors">
+                        <i data-lucide="share" class="w-4 h-4"></i>
+                        Teilen
+                    </button>
+                </div>
+            </div>
+            
+            <!-- More from category -->
+            <div class="p-4 rounded-xl border border-zinc-200 bg-white">
+                <p class="text-sm text-zinc-500 text-center">
+                    Weitere Projekte aus <strong>{{ cat.name }}</strong> findest du 
+                    <a href="{{ url_for('category', category_id=project.category) }}" class="text-{{ cat.color }}-600 hover:underline font-medium">hier</a>.
+                </p>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- PDF.js Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+    lucide.createIcons();
+    
+    {% if project.filename and project.filename.lower().endswith('.pdf') %}
+    // Initialize PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    const pdfUrl = "{{ url_for('static', filename='uploads/' + project.filename) }}";
+    const canvas = document.getElementById('pdf-canvas');
+    const loadingEl = document.getElementById('pdf-loading');
+    const errorEl = document.getElementById('pdf-error');
+    
+    // Load and render PDF
+    pdfjsLib.getDocument(pdfUrl).promise
+        .then(function(pdf) {
+            // Get first page
+            return pdf.getPage(1);
+        })
+        .then(function(page) {
+            // Calculate scale to fit container
+            const containerWidth = canvas.parentElement.clientWidth - 48; // padding
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = Math.min(containerWidth / viewport.width, 2); // max 2x scale
+            const scaledViewport = page.getViewport({ scale: scale });
+            
+            // Set canvas dimensions
+            canvas.height = scaledViewport.height;
+            canvas.width = scaledViewport.width;
+            
+            // Render PDF page
+            const renderContext = {
+                canvasContext: canvas.getContext('2d'),
+                viewport: scaledViewport
+            };
+            
+            return page.render(renderContext).promise;
+        })
+        .then(function() {
+            // Hide loading, show canvas
+            loadingEl.classList.add('hidden');
+        })
+        .catch(function(error) {
+            console.error('PDF loading error:', error);
+            loadingEl.classList.add('hidden');
+            errorEl.classList.remove('hidden');
+        });
+    {% endif %}
+</script>
+{% endblock %}

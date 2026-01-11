@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} · KI-Projektplattform{% endblock %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<a href="{{ url_for('category', category_id=category_id) }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">
+    {{ category.name }}
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 animate-fade-in"
+     x-data="desktopView()" 
+     x-init="init()">
+    
+    <!-- Category Header -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-{{ category.color }}-600 to-{{ category.color }}-500 p-8 mb-8 min-h-[140px]">
+        <!-- Background Images for each category -->
+        {% set bg_images = {
+            'naturwissenschaften': 'bg-naturwissenschaften.png',
+            'sprachen': 'bg-sprachen.png',
+            'gesellschaft': 'bg-gesellschaft.png',
+            'mathematik': 'bg-mathematik.png',
+            'kunst-musik': 'bg-kunst-musik.png',
+            'sonstiges': 'bg-sonstiges.png'
+        } %}
+        
+        {% if category_id in bg_images %}
+        <div class="absolute inset-0">
+            <img src="{{ url_for('static', filename=bg_images[category_id]) }}" 
+                 alt="" 
+                 class="absolute right-0 top-1/2 -translate-y-1/2 h-[200%] w-auto max-w-none opacity-50"
+                 style="mask-image: linear-gradient(to right, transparent 0%, black 50%, black 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 50%, black 100%);">
+        </div>
+        {% else %}
+        <div class="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        {% endif %}
+        
+        <div class="relative z-20 flex items-center gap-6">
+            <span class="text-6xl animate-float drop-shadow-lg">{{ category.icon }}</span>
+            <div>
+                <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-white mb-2 drop-shadow-md">
+                    {{ category.name }}
+                </h1>
+                <p class="text-white/90 drop-shadow">{{ category.description }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Breadcrumb Navigation within Desktop -->
+    <div class="flex items-center gap-2 mb-6 text-sm" x-show="currentSubject || currentType">
+        <button @click="goToRoot()" class="text-{{ category.color }}-600 hover:text-{{ category.color }}-800 font-medium flex items-center gap-1">
+            <i data-lucide="home" class="w-4 h-4"></i>
+            {{ category.name }}
+        </button>
+        <template x-if="currentSubject">
+            <div class="flex items-center gap-2">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+                <button @click="goToSubject(currentSubject)" 
+                        :class="currentType ? 'text-{{ category.color }}-600 hover:text-{{ category.color }}-800' : 'text-zinc-900'"
+                        class="font-medium" x-text="currentSubject"></button>
+            </div>
+        </template>
+        <template x-if="currentType">
+            <div class="flex items-center gap-2">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+                <span class="text-zinc-900 font-medium" x-text="getTypeName(currentType)"></span>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Desktop View Container -->
+    <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden min-h-[500px]">
+        
+        <!-- Level 1: Subject Folders (Fächer) -->
+        <div x-show="!currentSubject && !currentType" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="p-8">
+            
+            <h2 class="text-lg font-semibold text-zinc-700 mb-6 flex items-center gap-2">
+                <i data-lucide="folder" class="w-5 h-5"></i>
+                Fächer
+            </h2>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                {% for subject in category.subjects %}
+                <button @click="openSubject('{{ subject }}')" 
+                        class="group flex flex-col items-center p-4 rounded-xl hover:bg-{{ category.color }}-50 transition-all duration-200">
+                    <!-- Folder Icon -->
+                    <div class="relative mb-3">
+                        <svg class="w-20 h-20 text-{{ category.color }}-500 group-hover:text-{{ category.color }}-600 transition-colors drop-shadow-md" viewBox="0 0 80 80" fill="currentColor">
+                            <!-- Folder back -->
+                            <path d="M8 20 L8 65 C8 68 10 70 13 70 L67 70 C70 70 72 68 72 65 L72 28 C72 25 70 23 67 23 L38 23 L32 16 C31 15 29 14 27 14 L13 14 C10 14 8 16 8 19 Z" opacity="0.7"/>
+                            <!-- Folder front -->
+                            <path d="M4 28 L4 65 C4 68 6 70 9 70 L71 70 C74 70 76 68 76 65 L76 32 C76 29 74 27 71 27 L9 27 C6 27 4 29 4 32 Z"/>
+                        </svg>
+                        <!-- Item count badge -->
+                        <span class="absolute -top-1 -right-1 min-w-[24px] h-6 px-2 rounded-full bg-{{ category.color }}-600 text-white text-xs font-bold flex items-center justify-center shadow-lg"
+                              x-text="getSubjectCount('{{ subject }}')"></span>
+                    </div>
+                    <span class="text-sm font-medium text-zinc-700 group-hover:text-{{ category.color }}-700 text-center leading-tight">{{ subject }}</span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Level 2: Material Type Folders (Materialtypen) -->
+        <div x-show="currentSubject && !currentType" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform translate-x-4"
+             x-transition:enter-end="opacity-100 transform translate-x-0"
+             class="p-8">
+            
+            <h2 class="text-lg font-semibold text-zinc-700 mb-6 flex items-center gap-2">
+                <i data-lucide="layers" class="w-5 h-5"></i>
+                Materialtypen in <span class="text-{{ category.color }}-600" x-text="currentSubject"></span>
+            </h2>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-8">
+                {% for mtype in material_types %}
+                <button @click="openType('{{ mtype.id }}')" 
+                        class="group flex flex-col items-center p-6 rounded-xl hover:bg-{{ category.color }}-50 transition-all duration-200 border-2 border-transparent hover:border-{{ category.color }}-200">
+                    <!-- Custom Folder Icon with Type Symbol -->
+                    <div class="relative mb-4">
+                        <svg class="w-24 h-24 drop-shadow-lg" viewBox="0 0 96 96">
+                            <!-- Folder back -->
+                            <path d="M10 24 L10 78 C10 82 13 85 17 85 L79 85 C83 85 86 82 86 78 L86 34 C86 30 83 27 79 27 L46 27 L38 18 C37 17 35 16 33 16 L17 16 C13 16 10 19 10 23 Z" 
+                                  class="fill-{{ category.color }}-400 group-hover:fill-{{ category.color }}-500 transition-colors" opacity="0.7"/>
+                            <!-- Folder front -->
+                            <path d="M6 34 L6 78 C6 82 9 85 13 85 L83 85 C87 85 90 82 90 78 L90 38 C90 34 87 31 83 31 L13 31 C9 31 6 34 6 38 Z" 
+                                  class="fill-{{ category.color }}-500 group-hover:fill-{{ category.color }}-600 transition-colors"/>
+                        </svg>
+                        <!-- Type Icon Overlay -->
+                        <div class="absolute inset-0 flex items-center justify-center pt-4">
+                            <span class="text-4xl drop-shadow">{{ mtype.icon }}</span>
+                        </div>
+                        <!-- Count Badge -->
+                        <span class="absolute -top-1 -right-1 min-w-[28px] h-7 px-2 rounded-full bg-{{ category.color }}-600 text-white text-sm font-bold flex items-center justify-center shadow-lg"
+                              x-text="getTypeCount('{{ mtype.id }}')"></span>
+                    </div>
+                    <span class="text-sm font-semibold text-zinc-700 group-hover:text-{{ category.color }}-700 text-center">{{ mtype.name }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            
+            <!-- Back Button -->
+            <div class="mt-8 pt-6 border-t border-zinc-100">
+                <button @click="goToRoot()" class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-700 transition-colors">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Zurück zur Fächerübersicht
+                </button>
+            </div>
+        </div>
+        
+        <!-- Level 3: Projects List -->
+        <div x-show="currentSubject && currentType" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform translate-x-4"
+             x-transition:enter-end="opacity-100 transform translate-x-0"
+             class="p-8">
+            
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-lg font-semibold text-zinc-700 flex items-center gap-2">
+                    <span class="text-2xl" x-text="getTypeIcon(currentType)"></span>
+                    <span x-text="getTypeName(currentType)"></span>
+                    <span class="text-zinc-400">in</span>
+                    <span class="text-{{ category.color }}-600" x-text="currentSubject"></span>
+                </h2>
+                <span class="text-sm text-zinc-500">
+                    <span class="font-semibold text-zinc-700" x-text="filteredProjects.length"></span> Projekt<span x-show="filteredProjects.length !== 1">e</span>
+                </span>
+            </div>
+            
+            <!-- Projects Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" x-show="filteredProjects.length > 0">
+                <template x-for="(project, index) in filteredProjects" :key="project.id">
+                    <article class="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden hover:shadow-lg hover:border-{{ category.color }}-300 transition-all duration-200 group">
+                        
+                        <!-- Project Header -->
+                        <div class="p-5">
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <span class="text-2xl" x-text="getFileIcon(project.filename)"></span>
+                            </div>
+                            <h3 class="font-display font-bold text-zinc-900 group-hover:text-{{ category.color }}-600 transition-colors line-clamp-2" x-text="project.title"></h3>
+                        </div>
+                        
+                        <!-- Project Body -->
+                        <div class="px-5 pb-5">
+                            <p class="text-sm text-zinc-600 line-clamp-2 mb-4" x-text="project.description"></p>
+                            
+                            <!-- Footer -->
+                            <div class="flex items-center justify-between text-xs text-zinc-500">
+                                <span x-text="project.author || 'Anonym'"></span>
+                                <span class="flex items-center gap-1">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                    <span x-text="project.downloads || 0"></span>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="px-5 py-3 bg-white border-t border-zinc-200 flex items-center gap-2">
+                            <a :href="'/projekt/' + project.id" 
+                               class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors">
+                                Details
+                            </a>
+                            
+                            <!-- Online öffnen Button (wenn URL vorhanden) -->
+                            <a x-show="project.project_url && !project.filename" 
+                               :href="project.project_url" 
+                               target="_blank"
+                               class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                                Öffnen
+                            </a>
+                            
+                            {% if is_admin %}
+                            <a x-show="project.filename" 
+                               :href="'/download/' + project.id" 
+                               class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium bg-{{ category.color }}-600 text-white hover:bg-{{ category.color }}-700 transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                Download
+                            </a>
+                            {% elif can_user_download %}
+                            <a x-show="project.filename" 
+                               :href="'/download/' + project.id" 
+                               class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium bg-{{ category.color }}-600 text-white hover:bg-{{ category.color }}-700 transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>🪙 -{{ token_settings.download_cost }}</span>
+                            </a>
+                            {% else %}
+                            <span x-show="project.filename" 
+                                  class="flex-1 text-center py-2 px-4 rounded-lg text-sm font-medium bg-zinc-200 text-zinc-500 cursor-not-allowed flex items-center justify-center gap-2"
+                                  title="Nicht genug Tokens">
+                                <i data-lucide="lock" class="w-4 h-4"></i>
+                                Keine Tokens
+                            </span>
+                            {% endif %}
+                        </div>
+                    </article>
+                </template>
+            </div>
+            
+            <!-- Empty State -->
+            <div x-show="filteredProjects.length === 0" class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-zinc-100 flex items-center justify-center">
+                    <i data-lucide="folder-open" class="w-8 h-8 text-zinc-400"></i>
+                </div>
+                <h3 class="font-display font-bold text-lg text-zinc-900 mb-2">Keine Projekte</h3>
+                <p class="text-zinc-500 mb-6">In diesem Ordner sind noch keine Projekte vorhanden.</p>
+                <a href="{{ url_for('upload') }}?category={{ category_id }}" 
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-{{ category.color }}-600 text-white font-medium hover:bg-{{ category.color }}-700 transition-colors">
+                    <i data-lucide="upload" class="w-5 h-5"></i>
+                    Projekt hochladen
+                </a>
+            </div>
+            
+            <!-- Back Button -->
+            <div class="mt-8 pt-6 border-t border-zinc-100">
+                <button @click="goToSubject(currentSubject)" class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-700 transition-colors">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Zurück zu Materialtypen
+                </button>
+            </div>
+        </div>
+        
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const allProjects = {{ projects | tojson | safe }};
+    const materialTypes = {{ material_types | tojson | safe }};
+    
+    const fileIcons = {
+        'html': '🌐', 'htm': '🌐',
+        'css': '🎨',
+        'js': '⚡',
+        'py': '🐍',
+        'zip': '📦',
+        'pdf': '📄',
+        'md': '📝',
+        'txt': '📃',
+        'json': '📋'
+    };
+    
+    function desktopView() {
+        return {
+            allProjects: allProjects,
+            filteredProjects: [],
+            currentSubject: null,
+            currentType: null,
+            
+            init() {
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            openSubject(subject) {
+                this.currentSubject = subject;
+                this.currentType = null;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            openType(type) {
+                this.currentType = type;
+                this.filterProjects();
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            goToRoot() {
+                this.currentSubject = null;
+                this.currentType = null;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            goToSubject(subject) {
+                this.currentSubject = subject;
+                this.currentType = null;
+                this.$nextTick(() => lucide.createIcons());
+            },
+            
+            filterProjects() {
+                this.filteredProjects = this.allProjects.filter(project => {
+                    return project.subject === this.currentSubject && 
+                           project.material_type === this.currentType;
+                });
+            },
+            
+            getSubjectCount(subject) {
+                return this.allProjects.filter(p => p.subject === subject).length;
+            },
+            
+            getTypeCount(typeId) {
+                if (!this.currentSubject) return 0;
+                return this.allProjects.filter(p => 
+                    p.subject === this.currentSubject && p.material_type === typeId
+                ).length;
+            },
+            
+            getTypeName(typeId) {
+                const type = materialTypes.find(t => t.id === typeId);
+                return type ? type.name : typeId;
+            },
+            
+            getTypeIcon(typeId) {
+                const type = materialTypes.find(t => t.id === typeId);
+                return type ? type.icon : '📄';
+            },
+            
+            getFileIcon(filename) {
+                if (!filename) return '📄';
+                const ext = filename.split('.').pop().toLowerCase();
+                return fileIcons[ext] || '📎';
+            }
+        };
+    }
+    
+    lucide.createIcons();
+</script>
+{% endblock %}

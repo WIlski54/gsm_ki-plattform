@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Einstellungen · Admin{% endblock %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<a href="{{ url_for('admin_dashboard') }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">Admin</a>
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<span class="text-zinc-900 font-medium">Einstellungen</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 max-w-2xl mx-auto animate-fade-in">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-zinc-900">Einstellungen</h1>
+        <p class="text-zinc-500 mt-1">System- und Account-Einstellungen</p>
+    </div>
+    
+    <!-- Token System Settings -->
+    <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-zinc-200 bg-gradient-to-r from-amber-50 to-yellow-50">
+            <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                <span class="text-2xl">🪙</span>
+                Token-System
+            </h2>
+            <p class="text-sm text-zinc-500 mt-1">Konfiguriere das Token-System für Downloads und Uploads</p>
+        </div>
+        
+        <form action="{{ url_for('admin_settings') }}" method="POST" class="p-6 space-y-6">
+            <input type="hidden" name="action" value="save_token_settings">
+            
+            <!-- Current Settings Overview -->
+            <div class="grid grid-cols-3 gap-4 p-4 bg-zinc-50 rounded-xl">
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-amber-600">{{ settings.initial_tokens }}</p>
+                    <p class="text-xs text-zinc-500 mt-1">Start-Tokens</p>
+                </div>
+                <div class="text-center border-x border-zinc-200">
+                    <p class="text-3xl font-bold text-red-500">-{{ settings.download_cost }}</p>
+                    <p class="text-xs text-zinc-500 mt-1">pro Download</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-green-600">+{{ settings.upload_reward }}</p>
+                    <p class="text-xs text-zinc-500 mt-1">pro Upload</p>
+                </div>
+            </div>
+            
+            <!-- Initial Tokens -->
+            <div>
+                <label for="initial_tokens" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Start-Tokens für neue Benutzer
+                </label>
+                <div class="flex items-center gap-4">
+                    <input type="number" id="initial_tokens" name="initial_tokens" min="0" max="100"
+                           value="{{ settings.initial_tokens }}"
+                           class="w-32 px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-center text-lg font-semibold">
+                    <p class="text-sm text-zinc-500">Tokens, die neue User beim ersten Login erhalten</p>
+                </div>
+            </div>
+            
+            <!-- Download Cost -->
+            <div>
+                <label for="download_cost" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Token-Kosten pro Download
+                </label>
+                <div class="flex items-center gap-4">
+                    <input type="number" id="download_cost" name="download_cost" min="0" max="100"
+                           value="{{ settings.download_cost }}"
+                           class="w-32 px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-center text-lg font-semibold">
+                    <p class="text-sm text-zinc-500">Tokens, die pro Download abgezogen werden</p>
+                </div>
+            </div>
+            
+            <!-- Upload Reward -->
+            <div>
+                <label for="upload_reward" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Token-Belohnung pro Upload
+                </label>
+                <div class="flex items-center gap-4">
+                    <input type="number" id="upload_reward" name="upload_reward" min="0" max="100"
+                           value="{{ settings.upload_reward }}"
+                           class="w-32 px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-center text-lg font-semibold">
+                    <p class="text-sm text-zinc-500">Tokens, die User für einen Upload erhalten</p>
+                </div>
+            </div>
+            
+            <!-- Info Box -->
+            <div class="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                <div class="flex gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"></i>
+                    <div class="text-sm text-blue-800">
+                        <p class="font-semibold mb-1">So funktioniert das Token-System:</p>
+                        <ul class="space-y-1 text-blue-700">
+                            <li>• Neue Benutzer starten mit <strong>{{ settings.initial_tokens }} Tokens</strong></li>
+                            <li>• Jeder Download kostet <strong>{{ settings.download_cost }} Token</strong></li>
+                            <li>• Jeder Upload bringt <strong>{{ settings.upload_reward }} Token</strong></li>
+                            <li>• Admins haben unbegrenzte Tokens</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pt-2">
+                <button type="submit" 
+                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 text-white font-semibold hover:bg-amber-700 transition-colors">
+                    <i data-lucide="save" class="w-5 h-5"></i>
+                    Token-Einstellungen speichern
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Password Change -->
+    <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-zinc-200">
+            <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                <i data-lucide="key" class="w-5 h-5 text-zinc-400"></i>
+                Passwort ändern
+            </h2>
+        </div>
+        
+        <form action="{{ url_for('admin_settings') }}" method="POST" class="p-6 space-y-5">
+            <input type="hidden" name="action" value="change_password">
+            
+            <!-- Current Password -->
+            <div>
+                <label for="current_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Aktuelles Passwort
+                </label>
+                <input type="password" id="current_password" name="current_password" required
+                       class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                       placeholder="••••••••">
+            </div>
+            
+            <!-- New Password -->
+            <div>
+                <label for="new_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Neues Passwort
+                </label>
+                <input type="password" id="new_password" name="new_password" required minlength="6"
+                       class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                       placeholder="••••••••">
+                <p class="text-xs text-zinc-500 mt-1">Mindestens 6 Zeichen</p>
+            </div>
+            
+            <!-- Confirm Password -->
+            <div>
+                <label for="confirm_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                    Passwort bestätigen
+                </label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="6"
+                       class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                       placeholder="••••••••">
+            </div>
+            
+            <div class="pt-2">
+                <button type="submit" 
+                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors">
+                    <i data-lucide="check" class="w-5 h-5"></i>
+                    Passwort ändern
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Account Info -->
+    <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-200">
+            <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                <i data-lucide="user" class="w-5 h-5 text-zinc-400"></i>
+                Account-Informationen
+            </h2>
+        </div>
+        
+        <div class="p-6">
+            <dl class="space-y-4">
+                <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                    <dt class="text-sm text-zinc-500">Benutzername</dt>
+                    <dd class="text-sm font-medium text-zinc-900">{{ current_user.username }}</dd>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                    <dt class="text-sm text-zinc-500">Anzeigename</dt>
+                    <dd class="text-sm font-medium text-zinc-900">{{ current_user.name }}</dd>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                    <dt class="text-sm text-zinc-500">Rolle</dt>
+                    <dd>
+                        <span class="px-2 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium">
+                            {{ 'Administrator' if current_user.role == 'admin' else 'Benutzer' }}
+                        </span>
+                    </dd>
+                </div>
+                <div class="flex items-center justify-between py-2">
+                    <dt class="text-sm text-zinc-500">Erstellt am</dt>
+                    <dd class="text-sm font-medium text-zinc-900">{{ current_user.created[:10] if current_user.created else 'Unbekannt' }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anmelden · KI-Projektplattform</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'display': ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                        'body': ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-out',
+                        'slide-up': 'slideUp 0.6s ease-out',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="h-full">
+    <div class="min-h-full flex">
+        
+        <!-- Left Side: Branding -->
+        <div class="hidden lg:flex lg:w-1/2 gradient-bg relative overflow-hidden">
+            <!-- Decorative Elements -->
+            <div class="absolute top-20 left-20 w-72 h-72 bg-white/5 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl"></div>
+            
+            <!-- Content -->
+            <div class="relative z-10 flex flex-col justify-center px-16 py-12">
+                <!-- GSM Logo -->
+                <div class="mb-10 animate-fade-in">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="GSM Logo" class="h-24 w-auto drop-shadow-2xl">
+                </div>
+                
+                <!-- Headline -->
+                <div class="animate-slide-up" style="animation-delay: 0.1s">
+                    <h2 class="font-display font-extrabold text-4xl lg:text-5xl text-white leading-tight mb-6">
+                        KI-gestützte<br>
+                        Unterrichtsmaterialien<br>
+                        <span class="text-indigo-300">gemeinsam nutzen</span>
+                    </h2>
+                    <p class="text-indigo-200 text-lg max-w-md mb-10">
+                        Die zentrale Plattform für unser Kollegium, um innovative KI-Projekte 
+                        zu teilen, zu entdecken und weiterzuentwickeln.
+                    </p>
+                </div>
+                
+                <!-- Features -->
+                <div class="space-y-4 animate-slide-up" style="animation-delay: 0.2s">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                            <i data-lucide="folder-open" class="w-5 h-5 text-indigo-300"></i>
+                        </div>
+                        <p class="text-white">Projekte nach Fachbereichen organisiert</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                            <i data-lucide="upload" class="w-5 h-5 text-indigo-300"></i>
+                        </div>
+                        <p class="text-white">Eigene Projekte einfach hochladen</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                            <i data-lucide="download" class="w-5 h-5 text-indigo-300"></i>
+                        </div>
+                        <p class="text-white">Materialien direkt herunterladen</p>
+                    </div>
+                </div>
+                
+                <!-- School Info -->
+                <div class="mt-auto pt-12 animate-fade-in" style="animation-delay: 0.3s">
+                    <p class="text-indigo-300/60 text-sm">
+                        Gesamtschule Meiderich · KI-Projektplattform
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Side: Login Form -->
+        <div class="flex-1 flex items-center justify-center p-6 sm:p-12 bg-zinc-50">
+            <div class="w-full max-w-md animate-slide-up">
+                
+                <!-- Mobile Logo -->
+                <div class="lg:hidden text-center mb-8">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="GSM Logo" class="h-20 w-auto mx-auto mb-4 drop-shadow-xl">
+                    <h1 class="font-display font-bold text-xl text-zinc-900">KI-Projektplattform</h1>
+                    <p class="text-zinc-500 mt-1">Für unser Kollegium</p>
+                </div>
+                
+                <!-- Login Header -->
+                <div class="text-center mb-8">
+                    <h2 class="font-display font-bold text-2xl text-zinc-900">Willkommen!</h2>
+                    <p class="text-zinc-500 mt-2">Melde dich an, um auf die Plattform zuzugreifen</p>
+                </div>
+                
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for category, message in messages %}
+                    <div class="flex items-center gap-3 p-4 rounded-xl {% if category == 'error' %}bg-red-50 text-red-800{% else %}bg-green-50 text-green-800{% endif %}">
+                        <i data-lucide="{% if category == 'error' %}alert-circle{% else %}check-circle{% endif %}" class="w-5 h-5 flex-shrink-0"></i>
+                        <p class="text-sm font-medium">{{ message }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+                
+                <!-- Login Form -->
+                <form action="{{ url_for('login') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}" 
+                      method="POST" 
+                      class="glass-card rounded-2xl border border-zinc-200 shadow-xl p-8"
+                      x-data="{ showPassword: false }">
+                    
+                    <div class="space-y-5">
+                        <!-- Username -->
+                        <div>
+                            <label for="username" class="block text-sm font-semibold text-zinc-700 mb-2">
+                                Benutzername
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="username" name="username" required autofocus
+                                       class="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                       placeholder="dein.name">
+                                <i data-lucide="user" class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Password -->
+                        <div>
+                            <label for="password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                                Passwort
+                            </label>
+                            <div class="relative">
+                                <input :type="showPassword ? 'text' : 'password'" id="password" name="password" required
+                                       class="w-full pl-11 pr-12 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                       placeholder="••••••••">
+                                <i data-lucide="lock" class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                                <button type="button" @click="showPassword = !showPassword"
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors">
+                                    <i data-lucide="eye" class="w-5 h-5" x-show="!showPassword"></i>
+                                    <i data-lucide="eye-off" class="w-5 h-5" x-show="showPassword" style="display: none;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit -->
+                        <button type="submit" 
+                                class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 mt-2">
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                            Anmelden
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Help Text -->
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-zinc-500">
+                        Noch keinen Zugang? Wende dich an den Administrator.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

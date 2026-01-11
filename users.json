@@ -1,0 +1,30 @@
+{
+  "admin": {
+    "password": "scrypt:32768:8:1$pdBd8WPNSMPXkIw6$f103f308e3026c46289ed6b64f75d0034b22ea222998b35d7f414c68eaf4c8d713cf96810235f091fb5e53956b4a57df5ca7c39e1b28ac10e7a8e808aeddd5d3",
+    "role": "admin",
+    "name": "Administrator",
+    "tokens": 999999,
+    "created": "2025-12-14T13:32:19.118997"
+  },
+  "wk": {
+    "password": "scrypt:32768:8:1$5YiHMvmVwIYC76Q2$7828c0a96f731cfe63a83519209afaa7db1be745371a9f23bd34e5bc2279a1969136d602afbb879cf1be5a382a7dc9d2e46241bd4d7bf088163103b4db6e50dc",
+    "role": "user",
+    "name": "Stephan Wilski",
+    "tokens": 3,
+    "created": "2026-01-07T16:47:00.107246"
+  },
+  "dm": {
+    "password": "scrypt:32768:8:1$OReyEeb7L53j9laP$06f7e39c6c7e67b3fdfca8710545c2b9b34708bed434ca651be746514c34223ecbaf3a9bbf2cd2b351dc5f0d0b8f7829d02817e11bb24b8e9a608d62a52b2aa0",
+    "role": "user",
+    "name": "Steffi Damm",
+    "tokens": 3,
+    "created": "2026-01-07T16:48:28.587764"
+  },
+  "to": {
+    "password": "scrypt:32768:8:1$uRQTrgSljGF1dbQD$6ae20c2352fd16bb394b90e40519e7ad2a53186a563044b28ec3ac1140a556e27e9d361ed68b66f411c6e84a16129cb228e7a759d688e64838da9ea04ff91eaa",
+    "role": "user",
+    "name": "Malik Toprak",
+    "tokens": 3,
+    "created": "2026-01-07T16:49:54.652552"
+  }
+}

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="de" x-data="{ sidebarOpen: true, searchOpen: false }" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}KI-Projektplattform{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'display': ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                        'body': ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        'surface': {
+                            50: '#fafafa',
+                            100: '#f4f4f5',
+                            200: '#e4e4e7',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slideIn: {
+                            '0%': { opacity: '0', transform: 'translateX(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52525b;
+        }
+        
+        /* Sidebar Gradient */
+        .sidebar-gradient {
+            background: linear-gradient(180deg, #18181b 0%, #09090b 100%);
+        }
+        
+        /* Glass Effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        /* Card Hover Effect */
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Subtle Pattern */
+        .pattern-dots {
+            background-image: radial-gradient(#e4e4e7 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        /* Active Nav Item */
+        .nav-item-active {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, transparent 100%);
+            border-left: 3px solid #6366f1;
+        }
+        
+        /* Smooth transitions for sidebar */
+        .sidebar-transition {
+            transition: width 0.3s ease, transform 0.3s ease;
+        }
+        
+        /* Tag colors */
+        .tag-emerald { background: #d1fae5; color: #065f46; }
+        .tag-blue { background: #dbeafe; color: #1e40af; }
+        .tag-amber { background: #fef3c7; color: #92400e; }
+        .tag-violet { background: #ede9fe; color: #5b21b6; }
+        .tag-rose { background: #ffe4e6; color: #9f1239; }
+        .tag-slate { background: #e2e8f0; color: #334155; }
+    </style>
+</head>
+<body class="h-full bg-surface-50">
+    <div class="flex h-full">
+        
+        <!-- Sidebar -->
+        <aside 
+            class="sidebar-gradient text-white sidebar-transition flex flex-col"
+            :class="sidebarOpen ? 'w-72' : 'w-20'"
+        >
+            <!-- Logo -->
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="GSM" class="h-10 w-auto" x-show="sidebarOpen">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="GSM" class="h-8 w-auto" x-show="!sidebarOpen">
+                </div>
+                <p x-show="sidebarOpen" class="text-xs text-zinc-400 mt-2">KI-Projektplattform</p>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+                <p x-show="sidebarOpen" class="px-3 mb-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    Navigation
+                </p>
+                
+                <!-- Home -->
+                <a href="{{ url_for('index') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'index' %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="home" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Übersicht</span>
+                </a>
+                
+                <p x-show="sidebarOpen" class="px-3 mt-6 mb-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    Fachbereiche
+                </p>
+                
+                {% for cat_id, cat in categories.items() %}
+                <a href="{{ url_for('category', category_id=cat_id) }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'category' and request.view_args.get('category_id') == cat_id %}nav-item-active text-white{% endif %}">
+                    <span class="text-xl flex-shrink-0 w-5 text-center">{{ cat.icon }}</span>
+                    <span x-show="sidebarOpen" class="font-medium truncate">{{ cat.name }}</span>
+                </a>
+                {% endfor %}
+                
+                {% if current_user %}
+                <div class="pt-4 mt-4 border-t border-white/10">
+                    <a href="{{ url_for('upload') }}" 
+                       class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20
+                              {% if request.endpoint == 'upload' %}ring-2 ring-white/30{% endif %}">
+                        <i data-lucide="upload" class="w-5 h-5 flex-shrink-0"></i>
+                        <span x-show="sidebarOpen" class="font-semibold">Projekt hochladen</span>
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if is_admin %}
+                <!-- Admin Section -->
+                <p x-show="sidebarOpen" class="px-3 mt-6 mb-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    Administration
+                </p>
+                
+                <a href="{{ url_for('admin_dashboard') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'admin_dashboard' %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Dashboard</span>
+                </a>
+                
+                <a href="{{ url_for('admin_projects') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'admin_projects' %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="folder-cog" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Projekte</span>
+                </a>
+                
+                <a href="{{ url_for('admin_users') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint in ['admin_users', 'admin_create_user'] %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="users" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Benutzer</span>
+                </a>
+                
+                <a href="{{ url_for('admin_activity') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'admin_activity' %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="activity" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Aktivitäten</span>
+                </a>
+                
+                <a href="{{ url_for('admin_settings') }}" 
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all group
+                          {% if request.endpoint == 'admin_settings' %}nav-item-active text-white{% endif %}">
+                    <i data-lucide="settings" class="w-5 h-5 flex-shrink-0"></i>
+                    <span x-show="sidebarOpen" class="font-medium">Einstellungen</span>
+                </a>
+                {% endif %}
+            </nav>
+            
+            <!-- User & Sidebar Toggle -->
+            <div class="p-4 border-t border-white/10 space-y-2">
+                {% if current_user %}
+                <!-- Token Status (nicht für Admin) -->
+                {% if not is_admin %}
+                <div x-show="sidebarOpen" class="px-3 py-3 mb-2 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium text-amber-300">Deine Tokens</span>
+                        <span class="text-lg font-bold text-amber-400">🪙 {{ user_tokens }}</span>
+                    </div>
+                    <div class="text-xs text-amber-300/70">
+                        <span>Download: -{{ token_settings.download_cost }}</span>
+                        <span class="mx-1">·</span>
+                        <span>Upload: +{{ token_settings.upload_reward }}</span>
+                    </div>
+                </div>
+                <!-- Kompakte Token-Anzeige wenn Sidebar eingeklappt -->
+                <div x-show="!sidebarOpen" class="flex justify-center mb-2">
+                    <div class="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center" title="{{ user_tokens }} Tokens">
+                        <span class="text-amber-400 font-bold text-sm">{{ user_tokens }}</span>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div x-show="sidebarOpen" class="flex items-center gap-3 px-3 py-2 mb-2">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold">
+                        {{ current_user.name[0].upper() if current_user.name else 'U' }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">{{ current_user.name }}</p>
+                        <p class="text-xs text-zinc-400">{{ 'Admin' if current_user.role == 'admin' else 'Benutzer' }}</p>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" 
+                   class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                    <span x-show="sidebarOpen" class="text-sm">Abmelden</span>
+                </a>
+                {% else %}
+                <a href="{{ url_for('login') }}" 
+                   class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all">
+                    <i data-lucide="log-in" class="w-5 h-5"></i>
+                    <span x-show="sidebarOpen" class="text-sm font-medium">Anmelden</span>
+                </a>
+                {% endif %}
+                <button @click="sidebarOpen = !sidebarOpen" 
+                        class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+                    <i data-lucide="panel-left-close" class="w-5 h-5" x-show="sidebarOpen"></i>
+                    <i data-lucide="panel-left-open" class="w-5 h-5" x-show="!sidebarOpen"></i>
+                    <span x-show="sidebarOpen" class="text-sm">Einklappen</span>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            
+            <!-- Top Bar -->
+            <header class="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    {% block breadcrumb %}
+                    <nav class="flex items-center gap-2 text-sm">
+                        <a href="{{ url_for('index') }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">
+                            <i data-lucide="home" class="w-4 h-4"></i>
+                        </a>
+                        {% block breadcrumb_items %}{% endblock %}
+                    </nav>
+                    {% endblock %}
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <!-- Search -->
+                    <form action="{{ url_for('search') }}" method="GET" class="relative">
+                        <input type="text" name="q" placeholder="Projekte suchen..." 
+                               class="w-64 pl-10 pr-4 py-2 rounded-lg bg-zinc-100 border-0 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                               value="{{ request.args.get('q', '') }}">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                    </form>
+                    
+                    <!-- GitHub Link (Placeholder) -->
+                    <a href="#" class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all" title="GitHub Repository">
+                        <i data-lucide="github" class="w-5 h-5"></i>
+                    </a>
+                </div>
+            </header>
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="px-6 pt-4 space-y-2">
+                {% for category, message in messages %}
+                <div x-data="{ show: true }" x-show="show" x-transition
+                     class="flex items-center gap-3 p-4 rounded-lg {% if category == 'error' %}bg-red-50 text-red-800{% else %}bg-green-50 text-green-800{% endif %}">
+                    <i data-lucide="{% if category == 'error' %}alert-circle{% else %}check-circle{% endif %}" class="w-5 h-5"></i>
+                    <p class="flex-1 text-sm font-medium">{{ message }}</p>
+                    <button @click="show = false" class="p-1 rounded hover:bg-black/10 transition-colors">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            
+            <!-- Page Content -->
+            <div class="flex-1 overflow-y-auto">
+                {% block content %}{% endblock %}
+            </div>
+            
+            <!-- Footer -->
+            <footer class="h-12 bg-white border-t border-zinc-200 flex items-center justify-center px-6 flex-shrink-0">
+                <p class="text-xs text-zinc-500">
+                    KI-Projektplattform · Gesamtschule Meiderich
+                </p>
+            </footer>
+        </main>
+    </div>
+    
+    <!-- Initialize Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

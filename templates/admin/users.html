@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Benutzer verwalten · Admin{% endblock %}
+
+{% block breadcrumb_items %}
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<a href="{{ url_for('admin_dashboard') }}" class="text-zinc-500 hover:text-zinc-900 transition-colors">Admin</a>
+<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+<span class="text-zinc-900 font-medium">Benutzer</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 lg:p-10 animate-fade-in">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-zinc-900">Benutzer verwalten</h1>
+            <p class="text-zinc-500 mt-1">{{ users|length }} Benutzer registriert</p>
+        </div>
+        <a href="{{ url_for('admin_create_user') }}" 
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+            Neuer Benutzer
+        </a>
+    </div>
+    
+    <!-- Token Settings Info -->
+    <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
+        <div class="flex items-center gap-4 text-sm text-amber-800">
+            <span class="text-2xl">🪙</span>
+            <div>
+                <span class="font-semibold">Aktuelle Token-Einstellungen:</span>
+                Start-Tokens: <strong>{{ settings.initial_tokens }}</strong> · 
+                Download-Kosten: <strong>{{ settings.download_cost }}</strong> · 
+                Upload-Belohnung: <strong>{{ settings.upload_reward }}</strong>
+                <a href="{{ url_for('admin_settings') }}" class="ml-2 text-amber-600 hover:underline font-medium">Ändern →</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for username, user in users.items() %}
+        <div class="bg-white rounded-xl border border-zinc-200 p-6 card-hover">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold
+                        {% if user.role == 'admin' %}bg-violet-100 text-violet-600{% else %}bg-zinc-100 text-zinc-600{% endif %}">
+                        {{ user.name[0].upper() if user.name else username[0].upper() }}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-zinc-900">{{ user.name or username }}</h3>
+                        <p class="text-sm text-zinc-500">@{{ username }}</p>
+                    </div>
+                </div>
+                {% if user.role == 'admin' %}
+                <span class="px-2 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium">Admin</span>
+                {% else %}
+                <span class="px-2 py-1 rounded-full bg-zinc-100 text-zinc-600 text-xs font-medium">Benutzer</span>
+                {% endif %}
+            </div>
+            
+            <div class="space-y-2 text-sm text-zinc-500 mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    <span>Erstellt: {{ user.created[:10] if user.created else 'Unbekannt' }}</span>
+                </div>
+                
+                <!-- Token Display for non-admins -->
+                {% if user.role != 'admin' %}
+                <div class="flex items-center justify-between gap-2 p-3 mt-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🪙</span>
+                        <span class="font-semibold text-amber-800">{{ user.tokens if user.tokens is defined else settings.initial_tokens }} Tokens</span>
+                    </div>
+                    
+                    <!-- Quick Token Adjust -->
+                    <div x-data="{ editing: false, tokens: {{ user.tokens if user.tokens is defined else settings.initial_tokens }} }">
+                        <button x-show="!editing" @click="editing = true" 
+                                class="text-xs text-amber-600 hover:text-amber-800 font-medium">
+                            Bearbeiten
+                        </button>
+                        
+                        <form x-show="editing" 
+                              action="{{ url_for('admin_set_user_tokens', username=username) }}" 
+                              method="POST" 
+                              class="flex items-center gap-1"
+                              @click.away="editing = false">
+                            <input type="number" name="tokens" x-model="tokens" min="0" 
+                                   class="w-16 px-2 py-1 text-sm rounded border border-amber-300 focus:ring-1 focus:ring-amber-500 text-center">
+                            <button type="submit" class="p-1 text-green-600 hover:text-green-800">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" @click="editing = false" class="p-1 text-red-600 hover:text-red-800">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex items-center gap-2 p-3 mt-3 rounded-lg bg-violet-50 border border-violet-200">
+                    <span class="text-xl">∞</span>
+                    <span class="font-semibold text-violet-800">Unbegrenzte Tokens</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if username != current_user.username %}
+            <div class="flex items-center gap-2 pt-4 border-t border-zinc-100">
+                <form action="{{ url_for('admin_delete_user', username=username) }}" 
+                      method="POST" 
+                      onsubmit="return confirm('Benutzer {{ username }} wirklich löschen?')"
+                      class="flex-1">
+                    <button type="submit" 
+                            class="w-full py-2 px-4 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        Löschen
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <div class="pt-4 border-t border-zinc-100">
+                <p class="text-xs text-zinc-400 text-center">Das bist du</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}
