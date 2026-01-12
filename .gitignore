@@ -1,11 +1,16 @@
-@"
 __pycache__/
 *.pyc
 venv/
 .env
 *.db
 .DS_Store
-"@ | Out-File -Encoding utf8 .gitignore
-data/*.json
+
+# --- WICHTIG für Coolify ---
+# Alle echten Daten ignorieren (Sicherheit!)
+data/*
 static/uploads/*
+
+# Die leeren Platzhalter-Dateien aber ERLAUBEN
+# (Damit die Ordner überhaupt hochgeladen werden)
+!data/.gitkeep
 !static/uploads/.gitkeep
