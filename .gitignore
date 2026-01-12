@@ -4,13 +4,10 @@ venv/
 .env
 *.db
 .DS_Store
-
-# --- WICHTIG für Coolify ---
-# Alle echten Daten ignorieren (Sicherheit!)
+# Alles im data-Ordner ignorieren (damit keine echten Passwörter hochladen)...
 data/*
-static/uploads/*
+# ...ABER unsere Info-Datei erlauben (damit der Ordner überhaupt existiert)
+!data/info.txt
 
-# Die leeren Platzhalter-Dateien aber ERLAUBEN
-# (Damit die Ordner überhaupt hochgeladen werden)
-!data/.gitkeep
-!static/uploads/.gitkeep
+# Bei den Uploads ignorieren wir NICHTS, damit deine Poster mit hochgeladen werden!
+# (Habe gesehen, dass du da schon PDFs drin hast, die sollen ja sicher auf den Server)
