@@ -6,3 +6,6 @@ venv/
 *.db
 .DS_Store
 "@ | Out-File -Encoding utf8 .gitignore
+data/*.json
+static/uploads/*
+!static/uploads/.gitkeep

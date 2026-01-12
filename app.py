@@ -15,17 +15,31 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Konfiguration
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'html', 'htm', 'css', 'js', 'py', 'zip', 'pdf', 'md', 'txt', 'json'}
+# =============================================================================
+# Konfiguration & Pfade (Angepasst für Coolify/Docker)
+# =============================================================================
+
+# Daten-Verzeichnis: Hier liegen die JSON-Dateien
+# Wir nutzen eine Umgebungsvariable oder standardmäßig 'data'
+DATA_DIR = os.environ.get('DATA_DIR', 'data')
+os.makedirs(DATA_DIR, exist_ok=True)  # Erstellt den Ordner, falls er fehlt
+
+# Upload-Verzeichnis: Hier landen die PDFs
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max
 
-# Datendateien
-PROJECTS_FILE = 'projects.json'
-USERS_FILE = 'users.json'
-ACTIVITY_FILE = 'activity.json'
-SETTINGS_FILE = 'settings.json'
+ALLOWED_EXTENSIONS = {'html', 'htm', 'css', 'js', 'py', 'zip', 'pdf', 'md', 'txt', 'json'}
+
+# Datendateien - Jetzt sicher im data-Ordner
+PROJECTS_FILE = os.path.join(DATA_DIR, 'projects.json')
+USERS_FILE = os.path.join(DATA_DIR, 'users.json')
+ACTIVITY_FILE = os.path.join(DATA_DIR, 'activity.json')
+SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
+
+# =============================================================================
+# Konstanten & Kategorien
+# =============================================================================
 
 # Fachbereiche / Kategorien
 CATEGORIES = {
@@ -106,6 +120,8 @@ def load_json(filepath, default=None):
 
 def save_json(filepath, data):
     """Speichert Daten in JSON-Datei"""
+    # Sicherstellen, dass das Verzeichnis existiert (redundant aber sicher)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -300,7 +316,7 @@ def inject_globals():
 # Jinja2 Filter
 app.jinja_env.globals['get_file_icon'] = get_file_icon
 
-# Upload-Ordner erstellen
+# Upload-Ordner erstellen (sicherheitshalber)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Admin initialisieren
@@ -594,7 +610,10 @@ def admin_delete_project(project_id):
         if project.get('filename'):
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], project['filename'])
             if os.path.exists(filepath):
-                os.remove(filepath)
+                try:
+                    os.remove(filepath)
+                except OSError:
+                    pass # Datei vielleicht schon weg
         
         projects = [p for p in projects if p.get('id') != project_id]
         save_projects(projects)
