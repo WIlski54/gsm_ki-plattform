@@ -146,40 +146,31 @@
                         </div>
                         <div class="flex items-center gap-3 text-sm">
                             <i data-lucide="download" class="w-4 h-4 text-zinc-400"></i>
-                            <span class="text-zinc-600">{{ project.downloads }} Downloads</span>
+                            <span class="text-zinc-600">{{ project.downloads or 0 }} Downloads</span>
                         </div>
                         {% if project.filename %}
                         <div class="flex items-center gap-3 text-sm">
-                            <span class="text-lg">{{ get_file_icon(project.filename) }}</span>
+                            <i data-lucide="file" class="w-4 h-4 text-zinc-400"></i>
                             <span class="text-zinc-600 truncate">{{ project.filename.rsplit('_', 1)[0] if '_' in project.filename else project.filename }}</span>
-                        </div>
-                        {% endif %}
-                        {% if project.project_url %}
-                        <div class="flex items-center gap-3 text-sm">
-                            <i data-lucide="external-link" class="w-4 h-4 text-zinc-400"></i>
-                            <a href="{{ project.project_url }}" target="_blank" rel="noopener" 
-                               class="text-{{ cat.color }}-600 hover:text-{{ cat.color }}-700 hover:underline truncate">
-                                {{ project.project_url | truncate(40) }}
-                            </a>
                         </div>
                         {% endif %}
                     </div>
                     
                     <!-- Description -->
+                    {% if project.description %}
                     <div class="mb-6">
-                        <h2 class="font-semibold text-zinc-900 mb-2">Beschreibung</h2>
-                        <p class="text-sm text-zinc-600 whitespace-pre-line">{{ project.description or 'Keine Beschreibung vorhanden.' }}</p>
+                        <h3 class="font-display font-bold text-sm text-zinc-900 mb-2">Beschreibung</h3>
+                        <p class="text-sm text-zinc-600 leading-relaxed">{{ project.description }}</p>
                     </div>
+                    {% endif %}
                     
                     <!-- Tags -->
                     {% if project.tags %}
                     <div class="mb-6">
-                        <h2 class="font-semibold text-zinc-900 mb-2">Tags</h2>
-                        <div class="flex flex-wrap gap-1.5">
+                        <h3 class="font-display font-bold text-sm text-zinc-900 mb-2">Tags</h3>
+                        <div class="flex flex-wrap gap-2">
                             {% for tag in project.tags %}
-                            <span class="px-2 py-1 rounded-md bg-zinc-100 text-zinc-600 text-xs font-medium">
-                                {{ tag }}
-                            </span>
+                            <span class="px-2 py-1 rounded-lg bg-zinc-100 text-xs text-zinc-600">{{ tag }}</span>
                             {% endfor %}
                         </div>
                     </div>
@@ -286,7 +277,8 @@
     // Initialize PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     
-    const pdfUrl = "{{ url_for('static', filename='uploads/' + project.filename) }}";
+    // GEÄNDERT: Nutze die neue serve_upload Route statt static
+    const pdfUrl = "{{ url_for('serve_upload', filename=project.filename) }}";
     const canvas = document.getElementById('pdf-canvas');
     const loadingEl = document.getElementById('pdf-loading');
     const errorEl = document.getElementById('pdf-error');

@@ -432,6 +432,20 @@ def project_detail(project_id):
                          project=project, 
                          categories=CATEGORIES)
 
+# =============================================================================
+# Upload-Route für Vorschau (NEU - für Docker/Coolify)
+# =============================================================================
+
+@app.route('/uploads/<path:filename>')
+@login_required
+def serve_upload(filename):
+    """Serviert Dateien aus dem Upload-Ordner für PDF-Vorschau"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# =============================================================================
+# Download & Upload
+# =============================================================================
+
 @app.route('/download/<int:project_id>')
 @login_required
 def download_file(project_id):
