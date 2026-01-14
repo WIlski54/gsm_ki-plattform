@@ -20,7 +20,6 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-producti
 # =============================================================================
 
 # Daten-Verzeichnis: Hier liegen die JSON-Dateien
-# Wir nutzen eine Umgebungsvariable oder standardmäßig 'data'
 DATA_DIR = os.environ.get('DATA_DIR', 'data')
 os.makedirs(DATA_DIR, exist_ok=True)  # Erstellt den Ordner, falls er fehlt
 
@@ -433,7 +432,34 @@ def project_detail(project_id):
                          categories=CATEGORIES)
 
 # =============================================================================
-# Upload-Route für Vorschau (NEU - für Docker/Coolify)
+# NEU: Route für interaktive Vorschau (HTML)
+# =============================================================================
+
+@app.route('/view/<path:filename>')
+@login_required
+def view_file(filename):
+    """
+    Zeigt HTML-Dateien direkt im Browser an (für interaktive Arbeitsblätter),
+    geschützt durch Login. Verhindert externe Hotlinks.
+    """
+    # Sicherheitscheck: Nur erlaubte Dateitypen anzeigen
+    if not allowed_file(filename):
+        flash('Dateityp nicht erlaubt.', 'error')
+        return redirect(url_for('index'))
+    
+    # Prüfen, ob es eine HTML-Datei ist
+    if filename.lower().endswith(('.html', '.htm')):
+        # Sendet die Datei so, dass der Browser sie rendert (inline)
+        return send_from_directory(app.config['UPLOAD_FOLDER'], 
+                                  filename, 
+                                  mimetype='text/html')
+    
+    # Falls jemand versucht, ein ZIP oder PDF über diese Route zu laden:
+    # Umleiten zum regulären Download (kostet Tokens!)
+    return redirect(url_for('download_file', project_id=0))
+
+# =============================================================================
+# Upload-Route für Vorschau (Docker/Coolify)
 # =============================================================================
 
 @app.route('/uploads/<path:filename>')
