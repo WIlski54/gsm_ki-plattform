@@ -62,7 +62,8 @@ MATERIAL_TYPES = [
 DEFAULT_SETTINGS = {
     'download_cost': 1,
     'upload_reward': 3,
-    'start_tokens': 3
+    'start_tokens': 3,
+    'initial_tokens': 3 # Kompatibilität für Templates
 }
 
 # Globale Variablen für Daten (werden beim Start geladen)
@@ -87,6 +88,14 @@ def load_data():
         except Exception as e:
             print(f"Fehler beim Laden der User: {e}")
             users = {}
+            
+    # DATEN-MIGRATION: Sicherstellen, dass neue Felder existieren
+    for name, data in users.items():
+        if 'can_upload' not in data:
+            # Admins dürfen standardmäßig, andere nicht
+            data['can_upload'] = data.get('is_admin', False)
+        if 'role' not in data:
+            data['role'] = 'admin' if data.get('is_admin') else 'user'
     
     # Falls keine User existieren -> Standard-Admin erstellen
     if not users:
@@ -95,7 +104,8 @@ def load_data():
                 "password": generate_password_hash("admin123"),
                 "tokens": 9999,
                 "is_admin": True,
-                "can_upload": True, # Admin darf immer
+                "can_upload": True, 
+                "role": "admin",
                 "downloads": []
             }
         }
@@ -123,7 +133,9 @@ def load_data():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                system_settings = json.load(f)
+                loaded = json.load(f)
+                system_settings = DEFAULT_SETTINGS.copy()
+                system_settings.update(loaded)
         except Exception as e:
             print(f"Fehler beim Laden der Settings: {e}")
             system_settings = DEFAULT_SETTINGS.copy()
@@ -191,15 +203,13 @@ def get_file_icon(filename):
 load_data()
 
 # ------------------------------------------------------------------------------
-# 4. SICHERHEITS-CHECKS & CONTEXT
+# 4. CONTEXT PROCESSOR & SECURITY
 # ------------------------------------------------------------------------------
 
-# NEU: Diese Funktion verhindert den "Ups!" 500 Fehler
+# NOTBREMSE: Verhindert Abstürze durch alte Cookies
 @app.before_request
 def check_user_validity():
-    """Prüft vor JEDER Anfrage, ob der User in der Session noch existiert."""
     if 'user' in session and session['user'] not in users:
-        # User ist in Session (Cookie), aber nicht in DB -> Logout erzwingen
         session.pop('user', None)
         return redirect(url_for('login'))
 
@@ -210,10 +220,16 @@ def inject_global_vars():
     is_admin = False
     can_upload = False
     user_tokens = 0
+    current_user_obj = None
     
     if 'user' in session:
         user_data = users.get(session['user'])
         if user_data:
+            current_user_obj = user_data
+            # Workaround falls username nicht im Objekt ist
+            if 'username' not in current_user_obj:
+                current_user_obj['username'] = session['user']
+                
             user_tokens = user_data.get('tokens', 0)
             is_admin = user_data.get('is_admin', False)
             # Admin darf immer, User nur wenn Flag 'can_upload' True ist
@@ -226,8 +242,10 @@ def inject_global_vars():
         'material_types': MATERIAL_TYPES,
         'user_tokens': user_tokens,
         'is_admin': is_admin,
-        'can_upload': can_upload,
+        'can_upload': can_upload, # Wichtig für den "Projekt hochladen" Button
         'token_settings': system_settings,
+        'settings': system_settings, # Alias für users.html
+        'current_user': current_user_obj, # Wichtig für base.html
         'get_file_icon': get_file_icon
     }
 
@@ -266,6 +284,7 @@ def register():
                 "password": generate_password_hash(password),
                 "tokens": system_settings.get('start_tokens', 3),
                 "is_admin": False,
+                "role": "user",
                 "can_upload": False, # Sicherheit: Erstmal verbieten
                 "downloads": []
             }
@@ -333,10 +352,10 @@ def project_detail(project_id):
         flash("Projekt nicht gefunden", "error")
         return redirect(url_for('index'))
         
-    # Sicherer Zugriff auf User
     current_user = users.get(session['user'])
+    # Sicherheitscheck
     if not current_user:
-        return redirect(url_for('logout')) # Sollte dank before_request nicht passieren
+        return redirect(url_for('logout'))
 
     # Prüfen ob User Autor ist oder schon gekauft hat
     is_owner = project['author'] == session['user']
@@ -386,7 +405,7 @@ def upload():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    # --- BERECHTIGUNGS-PRÜFUNG (SICHER) ---
+    # --- BERECHTIGUNGS-PRÜFUNG START ---
     current_user = users.get(session['user'])
     if not current_user:
         return redirect(url_for('logout'))
@@ -394,18 +413,20 @@ def upload():
     is_admin = current_user.get('is_admin', False)
     can_upload = current_user.get('can_upload', False)
     
+    # Wenn weder Admin noch explizit erlaubt -> Zugriff verweigern
     if not is_admin and not can_upload:
         flash("Keine Berechtigung: Uploads sind derzeit nur für freigeschaltete Kollegen möglich.", "error")
         return redirect(url_for('index'))
-    # --- ENDE PRÜFUNG ---
+    # --- BERECHTIGUNGS-PRÜFUNG ENDE ---
 
     if request.method == 'POST':
         title = request.form['title']
         category = request.form['category']
         material_type = request.form['material_type']
         description = request.form.get('description', '')
+        # Tags parsen
         tags = [t.strip() for t in request.form.get('tags', '').split(',') if t.strip()]
-        project_url = request.form.get('project_url', '').strip()
+        project_url = request.form.get('project_url', '').strip() 
         
         file = request.files['file']
         filename = None
@@ -458,9 +479,9 @@ def download_file(project_id):
         return redirect(url_for('project_detail', project_id=project_id))
         
     user = users.get(session['user'])
-    if not user:
-        return redirect(url_for('logout'))
+    if not user: return redirect(url_for('logout'))
     
+    # Berechtigungs-Check für Kosten
     is_owner = project['author'] == session['user']
     has_purchased = project_id in user.get('downloads', [])
     is_admin = user.get('is_admin', False)
@@ -469,19 +490,25 @@ def download_file(project_id):
     if project.get('material_type') == 'worksheet_ai':
         cost = 3
         
+    # Wenn man noch nicht bezahlt hat und kein Admin/Owner ist
     if not is_owner and not has_purchased and not is_admin:
         if user['tokens'] < cost:
             flash("Nicht genügend Tokens!", "error")
             return redirect(url_for('project_detail', project_id=project_id))
             
+        # Tokens abziehen
         user['tokens'] -= cost
+        # Projekt zur "Gekauft"-Liste hinzufügen
         user.setdefault('downloads', []).append(project_id)
+        
+        # Download-Zähler beim Projekt erhöhen
         project['downloads'] = project.get('downloads', 0) + 1
         
         save_data()
         log_activity(session['user'], "Download", f"Projekt '{project['title']}' heruntergeladen (-{cost} Tokens)")
         flash(f"Download gestartet! {cost} Tokens abgezogen.", "success")
     
+    # Datei senden
     try:
         return send_from_directory(app.config['UPLOAD_FOLDER'], project['filename'], as_attachment=True)
     except FileNotFoundError:
@@ -489,16 +516,14 @@ def download_file(project_id):
         return redirect(url_for('project_detail', project_id=project_id))
 
 # ------------------------------------------------------------------------------
-# 8. PREVIEW ROUTES (SICHERHEIT FÜR IFRAMES)
+# 8. PREVIEW ROUTES
 # ------------------------------------------------------------------------------
 
 @app.route('/view/<filename>')
 def view_file(filename):
-    """Zeigt eine Datei (HTML) im Browser an."""
     if 'user' not in session:
         flash("Bitte erst einloggen.", "error")
         return redirect(url_for('login'))
-    
     try:
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     except FileNotFoundError:
@@ -506,7 +531,6 @@ def view_file(filename):
 
 @app.route('/serve_upload/<filename>')
 def serve_upload(filename):
-    """Hilfsroute für PDF.js und Bilder-Vorschau."""
     if 'user' not in session:
         abort(403)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -517,15 +541,10 @@ def serve_upload(filename):
 
 @app.route('/admin')
 def admin_dashboard():
-    # Sicherer Check
-    if 'user' not in session:
-        return redirect(url_for('index'))
-    
-    user = users.get(session['user'])
-    if not user or not user.get('is_admin'):
+    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
         
-    # Statistiken berechnen
+    # Statistiken
     total_projects = len(projects)
     total_users = len(users)
     total_downloads = sum(p.get('downloads', 0) for p in projects)
@@ -541,7 +560,6 @@ def admin_dashboard():
             'downloads': count
         }
         
-    # Top 5 Projekte
     top_projects = sorted(projects, key=lambda x: x.get('downloads', 0), reverse=True)[:5]
         
     return render_template('admin/dashboard.html',
@@ -561,8 +579,6 @@ def admin_projects():
 
 @app.route('/admin/users')
 def admin_users():
-    # HIER LAG DER FEHLER 500: users[session['user']] stürzt ab, wenn User fehlt.
-    # Jetzt sicher mit .get():
     if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
     return render_template('admin/users.html', users=users)
@@ -583,6 +599,8 @@ def admin_settings():
             system_settings['download_cost'] = int(request.form['download_cost'])
             system_settings['upload_reward'] = int(request.form['upload_reward'])
             system_settings['start_tokens'] = int(request.form['start_tokens'])
+            # Auch initial_tokens setzen
+            system_settings['initial_tokens'] = int(request.form['start_tokens'])
             save_settings()
             flash("Einstellungen gespeichert!", "success")
         except ValueError:
@@ -625,8 +643,58 @@ def admin_delete_user(username):
             
     return redirect(url_for('admin_users'))
 
+# --- HIER SIND DIE WIEDERHERGESTELLTEN ADMIN-ROUTEN ---
+
+@app.route('/admin/create_user', methods=['GET', 'POST'])
+def admin_create_user():
+    """Wurde von users.html aufgerufen, fehlte in der letzten Version."""
+    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username in users:
+            flash("Benutzer existiert bereits", "error")
+        else:
+            users[username] = {
+                "password": generate_password_hash(password),
+                "tokens": system_settings.get('start_tokens', 3),
+                "is_admin": False,
+                "role": "user",
+                "can_upload": False,
+                "downloads": []
+            }
+            save_data()
+            log_activity(session['user'], "Admin", f"User {username} manuell erstellt")
+            flash(f"Benutzer {username} erfolgreich erstellt.", "success")
+            return redirect(url_for('admin_users'))
+            
+    # Falls du kein dediziertes Template hast, nutzen wir register oder rendern ein einfaches Formular
+    # Hier nehmen wir register.html als Fallback, aber idealerweise hast du admin/create_user.html
+    return render_template('register.html', admin_mode=True)
+
+@app.route('/admin/set_user_tokens/<username>', methods=['POST'])
+def admin_set_user_tokens(username):
+    """Token-Bearbeitung direkt aus der User-Liste (users.html)."""
+    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
+        return redirect(url_for('index'))
+        
+    if username in users:
+        try:
+            new_tokens = int(request.form.get('tokens', 0))
+            users[username]['tokens'] = new_tokens
+            save_data()
+            flash(f"Tokens für {username} aktualisiert.", "success")
+        except ValueError:
+            flash("Ungültige Zahl.", "error")
+            
+    return redirect(url_for('admin_users'))
+
 @app.route('/admin/users/toggle_upload/<username>', methods=['POST'])
 def admin_toggle_upload(username):
+    """Das neue Feature: Upload-Recht umschalten."""
     if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
     
