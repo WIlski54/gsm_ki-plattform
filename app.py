@@ -1,783 +1,871 @@
-import os
-import json
-import datetime
-import shutil
-import math
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, abort
+"""
+KI-Projekt-Plattform für Schulen
+Eine Austauschplattform für KI-Projekte unter Kollegen
+Mit Login-System, Admin-Dashboard und Token-System
+"""
+
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, session
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# ------------------------------------------------------------------------------
-# 1. KONFIGURATION & SETUP
-# ------------------------------------------------------------------------------
+from functools import wraps
+import os
+import json
+from datetime import datetime
 
 app = Flask(__name__)
-# ACHTUNG: Ändere diesen Schlüssel für die Produktion!
-app.secret_key = "DEIN_GEHEIMER_SCHLUESSEL_HIER_AENDERN"
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Pfade für Persistenz (Docker Volumes)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
+# =============================================================================
+# Konfiguration & Pfade (Angepasst für Coolify/Docker)
+# =============================================================================
 
-# Sicherstellen, dass Verzeichnisse existieren
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Daten-Verzeichnis: Hier liegen die JSON-Dateien
+DATA_DIR = os.environ.get('DATA_DIR', 'data')
+os.makedirs(DATA_DIR, exist_ok=True)  # Erstellt den Ordner, falls er fehlt
 
+# Upload-Verzeichnis: Hier landen die PDFs
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # Max 50 MB Upload
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max
 
-# Erlaubte Dateiendungen
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'mp3', 'mp4', 'zip', 'html', 'htm'}
+ALLOWED_EXTENSIONS = {'html', 'htm', 'css', 'js', 'py', 'zip', 'pdf', 'md', 'txt', 'json'}
 
-# Dateinamen für JSON-Datenbanken
-USERS_FILE = os.path.join(DATA_DIR, 'users.json')
+# Datendateien - Jetzt sicher im data-Ordner
 PROJECTS_FILE = os.path.join(DATA_DIR, 'projects.json')
+USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 ACTIVITY_FILE = os.path.join(DATA_DIR, 'activity.json')
 SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
 
-# ------------------------------------------------------------------------------
-# 2. DATENSTRUKTUREN (MIT UNTERKATEGORIEN)
-# ------------------------------------------------------------------------------
+# =============================================================================
+# Konstanten & Kategorien
+# =============================================================================
 
+# Fachbereiche / Kategorien
 CATEGORIES = {
     'naturwissenschaften': {
-        'name': 'Naturwissenschaften', 
-        'icon': '🔬', 
+        'name': 'Naturwissenschaften',
+        'icon': '🔬',
+        'description': 'Chemie, Physik, Biologie',
         'color': 'emerald',
-        'subcategories': {
-            'biologie': 'Biologie',
-            'chemie': 'Chemie',
-            'physik': 'Physik'
-        }
+        'subjects': ['Chemie', 'Physik', 'Biologie']
     },
     'sprachen': {
-        'name': 'Sprachen', 
-        'icon': '📚', 
+        'name': 'Sprachen',
+        'icon': '📚',
+        'description': 'Deutsch, Englisch, Fremdsprachen',
         'color': 'blue',
-        'subcategories': {
-            'deutsch': 'Deutsch',
-            'englisch': 'Englisch',
-            'französisch': 'Französisch',
-            'spanisch': 'Spanisch'
-        }
+        'subjects': ['Deutsch', 'Englisch', 'Französisch', 'Spanisch', 'Latein']
     },
     'gesellschaft': {
-        'name': 'Gesellschaftswissenschaften', 
-        'icon': '🌍', 
+        'name': 'Gesellschaftswissenschaften',
+        'icon': '🌍',
+        'description': 'Geschichte, Politik, Erdkunde',
         'color': 'amber',
-        'subcategories': {
-            'geschichte': 'Geschichte',
-            'erdkunde': 'Erdkunde',
-            'politik': 'Politik/SoWi',
-            'religion': 'Religion/Ethik'
-        }
+        'subjects': ['Geschichte', 'Politik', 'Erdkunde', 'Sozialwissenschaften']
     },
-    'mathe_info': {
-        'name': 'Mathematik & Informatik', 
-        'icon': '📐', 
-        'color': 'indigo',
-        'subcategories': {
-            'mathematik': 'Mathematik',
-            'informatik': 'Informatik'
-        }
-    },
-    'kunst_musik': {
-        'name': 'Kunst & Musik', 
-        'icon': '🎨', 
-        'color': 'pink',
-        'subcategories': {
-            'kunst': 'Kunst',
-            'musik': 'Musik'
-        }
-    },
-    'faecheruebergreifend': {
-        'name': 'Fächerübergreifend', 
-        'icon': '✨', 
+    'mathematik': {
+        'name': 'Mathematik & Informatik',
+        'icon': '📐',
+        'description': 'Mathematik, Informatik, Technik',
         'color': 'violet',
-        'subcategories': {
-            'projekte': 'Projekte',
-            'methoden': 'Methoden',
-            'sonstiges': 'Sonstiges'
-        }
+        'subjects': ['Mathematik', 'Informatik', 'Technik']
+    },
+    'kunst-musik': {
+        'name': 'Kunst & Musik',
+        'icon': '🎨',
+        'description': 'Kunst, Musik, Theater',
+        'color': 'rose',
+        'subjects': ['Kunst', 'Musik', 'Darstellendes Spiel']
+    },
+    'sonstiges': {
+        'name': 'Fächerübergreifend',
+        'icon': '✨',
+        'description': 'Allgemeine Tools & Projekte',
+        'color': 'slate',
+        'subjects': ['Allgemein', 'Verwaltung', 'Organisation']
     }
 }
 
+# Einheitliche Materialtypen für alle Fächer
 MATERIAL_TYPES = [
-    {'id': 'worksheet_analog', 'name': 'Arbeitsblatt (analog)', 'icon': '📄'},
-    {'id': 'worksheet_digital', 'name': 'Arbeitsblatt (interaktiv)', 'icon': '🎮'},
-    {'id': 'worksheet_ai', 'name': 'Arbeitsblatt (KI)', 'icon': '🤖'},
-    {'id': 'presentation', 'name': 'Präsentation', 'icon': '📊'},
-    {'id': 'video', 'name': 'Erklärvideo', 'icon': '🎬'},
-    {'id': 'audio', 'name': 'Audio/Podcast', 'icon': '🎧'},
-    {'id': 'other', 'name': 'Sonstiges', 'icon': '📦'}
+    {'id': 'folie', 'name': 'Folie/Poster', 'icon': '🖼️'},
+    {'id': 'arbeitsblatt', 'name': 'Arbeitsblatt', 'icon': '📝'},
+    {'id': 'interaktiv', 'name': 'Arbeitsblatt (interaktiv)', 'icon': '🎮'},
+    {'id': 'ki', 'name': 'Arbeitsblatt (KI)', 'icon': '🤖'}
 ]
 
+# Standard Token-Einstellungen
 DEFAULT_SETTINGS = {
-    'download_cost': 1,
-    'upload_reward': 3,
-    'start_tokens': 3,
-    'initial_tokens': 3  # Wichtig für Kompatibilität mit users.html
+    'initial_tokens': 3,      # Start-Token für neue User
+    'download_cost': 1,       # Token-Kosten pro Download
+    'upload_reward': 1        # Token-Belohnung pro Upload
 }
 
-# Globale Variablen für Daten (werden beim Start geladen)
-users = {}
-projects = []
-activity_log = []
-system_settings = {}
+# =============================================================================
+# Hilfsfunktionen für Datenpersistenz
+# =============================================================================
 
-# ------------------------------------------------------------------------------
-# 3. HILFSFUNKTIONEN (DATENBANK & LOGIK)
-# ------------------------------------------------------------------------------
-
-def load_data():
-    """Lädt alle Daten aus den JSON-Dateien."""
-    global users, projects, activity_log, system_settings
-    
-    # User laden
-    if os.path.exists(USERS_FILE):
+def load_json(filepath, default=None):
+    """Lädt JSON-Datei, gibt default zurück wenn nicht vorhanden"""
+    if default is None:
+        default = []
+    if os.path.exists(filepath):
         try:
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                users = json.load(f)
-        except Exception as e:
-            print(f"Fehler beim Laden der User: {e}")
-            users = {}
-            
-    # MIGRATION: Sicherstellen, dass neue Felder existieren
-    for name, data in users.items():
-        if 'can_upload' not in data:
-            data['can_upload'] = data.get('is_admin', False)
-        if 'role' not in data:
-            data['role'] = 'admin' if data.get('is_admin') else 'user'
-        if 'name' not in data:
-            data['name'] = name
-    
-    # Falls keine User existieren -> Standard-Admin erstellen
-    if not users:
-        users = {
-            "Administrator": {
-                "password": generate_password_hash("admin123"),
-                "tokens": 9999,
-                "is_admin": True,
-                "can_upload": True, 
-                "role": "admin",
-                "name": "Administrator",
-                "downloads": []
-            }
-        }
-        save_data()
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return default
+    return default
 
-    # Projekte laden
-    if os.path.exists(PROJECTS_FILE):
-        try:
-            with open(PROJECTS_FILE, 'r', encoding='utf-8') as f:
-                projects = json.load(f)
-        except Exception as e:
-            print(f"Fehler beim Laden der Projekte: {e}")
-            projects = []
-    
-    # Aktivitäten laden
-    if os.path.exists(ACTIVITY_FILE):
-        try:
-            with open(ACTIVITY_FILE, 'r', encoding='utf-8') as f:
-                activity_log = json.load(f)
-        except Exception as e:
-            print(f"Fehler beim Laden der Aktivitäten: {e}")
-            activity_log = []
+def save_json(filepath, data):
+    """Speichert Daten in JSON-Datei"""
+    # Sicherstellen, dass das Verzeichnis existiert (redundant aber sicher)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # Einstellungen laden
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                loaded = json.load(f)
-                system_settings = DEFAULT_SETTINGS.copy()
-                system_settings.update(loaded)
-        except Exception as e:
-            print(f"Fehler beim Laden der Settings: {e}")
-            system_settings = DEFAULT_SETTINGS.copy()
-    else:
-        system_settings = DEFAULT_SETTINGS.copy()
-        save_settings()
+def load_projects():
+    return load_json(PROJECTS_FILE, [])
 
-def save_data():
-    """Speichert User und Projekte in JSON-Dateien."""
-    try:
-        with open(USERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(users, f, indent=4)
-        with open(PROJECTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(projects, f, indent=4)
-    except Exception as e:
-        print(f"Fehler beim Speichern der Daten: {e}")
+def save_projects(projects):
+    save_json(PROJECTS_FILE, projects)
 
-def save_activity():
-    """Speichert das Aktivitätslog."""
-    try:
-        with open(ACTIVITY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(activity_log, f, indent=4)
-    except Exception as e:
-        print(f"Fehler beim Speichern der Aktivitäten: {e}")
+def load_users():
+    return load_json(USERS_FILE, {})
 
-def save_settings():
-    """Speichert die Systemeinstellungen."""
-    try:
-        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(system_settings, f, indent=4)
-    except Exception as e:
-        print(f"Fehler beim Speichern der Settings: {e}")
+def save_users(users):
+    save_json(USERS_FILE, users)
 
-def log_activity(user, action, details):
-    """Schreibt einen Eintrag ins Logbuch."""
+def load_activity():
+    return load_json(ACTIVITY_FILE, [])
+
+def save_activity(activity):
+    save_json(ACTIVITY_FILE, activity)
+
+def load_settings():
+    settings = load_json(SETTINGS_FILE, {})
+    # Merge mit Defaults
+    for key, value in DEFAULT_SETTINGS.items():
+        if key not in settings:
+            settings[key] = value
+    return settings
+
+def save_settings(settings):
+    save_json(SETTINGS_FILE, settings)
+
+# =============================================================================
+# Token-System
+# =============================================================================
+
+def get_user_tokens(username):
+    """Gibt Token-Anzahl eines Users zurück"""
+    users = load_users()
+    user = users.get(username, {})
+    return user.get('tokens', 0)
+
+def set_user_tokens(username, tokens):
+    """Setzt Token-Anzahl für einen User"""
+    users = load_users()
+    if username in users:
+        users[username]['tokens'] = max(0, tokens)  # Nie negativ
+        save_users(users)
+        return True
+    return False
+
+def add_user_tokens(username, amount):
+    """Fügt Tokens hinzu"""
+    users = load_users()
+    if username in users:
+        current = users[username].get('tokens', 0)
+        users[username]['tokens'] = current + amount
+        save_users(users)
+        return users[username]['tokens']
+    return 0
+
+def deduct_user_tokens(username, amount):
+    """Zieht Tokens ab, gibt True zurück wenn erfolgreich"""
+    users = load_users()
+    if username in users:
+        current = users[username].get('tokens', 0)
+        if current >= amount:
+            users[username]['tokens'] = current - amount
+            save_users(users)
+            return True
+    return False
+
+def can_download(username):
+    """Prüft ob User downloaden kann (genug Tokens oder Admin)"""
+    users = load_users()
+    user = users.get(username, {})
+    if user.get('role') == 'admin':
+        return True
+    settings = load_settings()
+    return user.get('tokens', 0) >= settings.get('download_cost', 1)
+
+# =============================================================================
+# Aktivitäts-Logging
+# =============================================================================
+
+def log_activity(action, details="", user=None):
+    """Loggt eine Aktivität"""
+    activity = load_activity()
     entry = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "user": user,
-        "action": action,
-        "details": details
+        'id': len(activity) + 1,
+        'timestamp': datetime.now().isoformat(),
+        'action': action,
+        'details': details,
+        'user': user or session.get('username', 'Anonym'),
+        'ip': request.remote_addr if request else None
     }
-    activity_log.insert(0, entry) # Neuester Eintrag oben
-    if len(activity_log) > 200: # Log begrenzen
-        activity_log.pop()
-    save_activity()
+    activity.insert(0, entry)
+    activity = activity[:500]
+    save_activity(activity)
+    return entry
+
+# =============================================================================
+# Authentifizierung
+# =============================================================================
+
+def init_admin():
+    """Erstellt Admin-Account falls nicht vorhanden"""
+    users = load_users()
+    if 'admin' not in users:
+        users['admin'] = {
+            'password': generate_password_hash('admin123'),
+            'role': 'admin',
+            'name': 'Administrator',
+            'tokens': 999999,  # Admin hat unbegrenzt
+            'created': datetime.now().isoformat()
+        }
+        save_users(users)
+        print("=" * 60)
+        print("⚠️  Admin-Account erstellt!")
+        print("   Benutzername: admin")
+        print("   Passwort: admin123")
+        print("   Bitte Passwort nach erstem Login ändern!")
+        print("=" * 60)
+    
+    # Settings initialisieren
+    if not os.path.exists(SETTINGS_FILE):
+        save_settings(DEFAULT_SETTINGS)
+
+def login_required(f):
+    """Decorator für geschützte Routen"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Bitte melde dich an.', 'error')
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """Decorator für Admin-Routen"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Bitte melde dich an.', 'error')
+            return redirect(url_for('login'))
+        users = load_users()
+        user = users.get(session.get('user_id'), {})
+        if user.get('role') != 'admin':
+            flash('Zugriff verweigert.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_current_user():
+    """Gibt aktuellen User zurück oder None"""
+    if 'user_id' not in session:
+        return None
+    users = load_users()
+    user = users.get(session.get('user_id'))
+    if user:
+        user['username'] = session.get('user_id')
+    return user
 
 def allowed_file(filename):
-    """Prüft die Dateiendung."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_file_icon(filename):
-    """Gibt ein passendes Emoji für den Dateityp zurück."""
-    if not filename: return '📄'
-    ext = filename.rsplit('.', 1)[1].lower()
+    if not filename:
+        return '📄'
+    ext = filename.rsplit('.', 1)[-1].lower()
     icons = {
-        'pdf': '📕', 'doc': '📘', 'docx': '📘',
-        'xls': '📗', 'xlsx': '📗', 'ppt': '📙', 'pptx': '📙',
-        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
-        'mp3': '🎧', 'wav': '🎧', 'mp4': '🎬', 'mov': '🎬',
-        'zip': '📦', 'rar': '📦', 'html': '🌐', 'htm': '🌐'
+        'html': '🌐', 'htm': '🌐', 'css': '🎨', 'js': '⚡',
+        'py': '🐍', 'zip': '📦', 'pdf': '📄', 'md': '📝',
+        'txt': '📃', 'json': '📋'
     }
-    return icons.get(ext, '📄')
+    return icons.get(ext, '📎')
 
-# Beim Start einmal laden
-load_data()
-
-# ------------------------------------------------------------------------------
-# 4. CONTEXT PROCESSOR & SICHERHEIT
-# ------------------------------------------------------------------------------
-
-# NOTBREMSE: Verhindert Abstürze durch alte Cookies
-@app.before_request
-def check_user_validity():
-    if 'user' in session and session['user'] not in users:
-        session.pop('user', None)
-        return redirect(url_for('login'))
-
+# Jinja2 Context Processor
 @app.context_processor
-def inject_global_vars():
-    """Stellt Variablen global in allen Templates zur Verfügung."""
-    user_data = None
-    is_admin = False
-    can_upload = False
-    user_tokens = 0
-    current_user_obj = None
-    
-    if 'user' in session:
-        user_data = users.get(session['user'])
-        if user_data:
-            current_user_obj = user_data
-            # Workaround falls username nicht im Objekt ist
-            if 'username' not in current_user_obj:
-                current_user_obj['username'] = session['user']
-                
-            user_tokens = user_data.get('tokens', 0)
-            is_admin = user_data.get('is_admin', False)
-            # Admin darf immer, User nur wenn Flag 'can_upload' True ist
-            can_upload = is_admin or user_data.get('can_upload', False)
+def inject_globals():
+    user = get_current_user()
+    settings = load_settings()
+    return dict(
+        current_user=user, 
+        is_admin=user and user.get('role') == 'admin',
+        material_types=MATERIAL_TYPES,
+        token_settings=settings,
+        user_tokens=user.get('tokens', 0) if user else 0,
+        can_user_download=can_download(session.get('user_id')) if user else False
+    )
 
-    return {
-        'users': users,
-        'projects': projects,
-        'categories': CATEGORIES,
-        'material_types': MATERIAL_TYPES,
-        'user_tokens': user_tokens,
-        'is_admin': is_admin,
-        'can_upload': can_upload, 
-        'token_settings': system_settings,
-        'settings': system_settings, # Alias für users.html
-        'current_user': current_user_obj, 
-        'get_file_icon': get_file_icon
-    }
+# Jinja2 Filter
+app.jinja_env.globals['get_file_icon'] = get_file_icon
 
-# ------------------------------------------------------------------------------
-# 5. AUTH ROUTES (LOGIN / REGISTER / LOGOUT)
-# ------------------------------------------------------------------------------
+# Upload-Ordner erstellen (sicherheitshalber)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Admin initialisieren
+init_admin()
+
+# =============================================================================
+# Auth-Routen
+# =============================================================================
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
         
+        users = load_users()
         user = users.get(username)
-        if user and check_password_hash(user['password'], password):
-            session['user'] = username
-            log_activity(username, "Login", "Erfolgreich angemeldet")
-            return redirect(url_for('index'))
         
-        flash("Ungültiger Benutzername oder Passwort", "error")
-    return render_template('login.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        if username in users:
-            flash("Benutzername bereits vergeben", "error")
-        elif len(password) < 4:
-            flash("Passwort muss mindestens 4 Zeichen lang sein", "error")
+        if user and check_password_hash(user.get('password', ''), password):
+            session['user_id'] = username
+            session['username'] = user.get('name', username)
+            session['role'] = user.get('role', 'user')
+            log_activity('login', f'Login erfolgreich', username)
+            flash(f'Willkommen, {user.get("name", username)}!', 'success')
+            next_url = request.args.get('next', url_for('index'))
+            return redirect(next_url)
         else:
-            # Neuer User: Standard-Tokens, kein Admin, Standardmäßig KEIN Upload-Recht
-            users[username] = {
-                "password": generate_password_hash(password),
-                "tokens": system_settings.get('start_tokens', 3),
-                "is_admin": False,
-                "role": "user",
-                "can_upload": False, # Sicherheit: Standardmäßig aus
-                "downloads": [],
-                "name": username,
-                "created": datetime.datetime.now().isoformat()
-            }
-            save_data()
-            log_activity(username, "Registrierung", "Neuer Benutzer registriert")
-            flash("Registrierung erfolgreich! Bitte einloggen.", "success")
-            return redirect(url_for('login'))
-            
-    return render_template('register.html')
+            log_activity('login_failed', f'Fehlgeschlagen für: {username}')
+            flash('Ungültige Anmeldedaten.', 'error')
+    
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
-    if 'user' in session:
-        log_activity(session['user'], "Logout", "Abgemeldet")
-        session.pop('user', None)
+    username = session.get('user_id', 'Unbekannt')
+    log_activity('logout', 'Logout', username)
+    session.clear()
+    flash('Du wurdest abgemeldet.', 'success')
     return redirect(url_for('login'))
 
-# ------------------------------------------------------------------------------
-# 6. MAIN ROUTES (USER BEREICH)
-# ------------------------------------------------------------------------------
+# =============================================================================
+# Hauptseiten
+# =============================================================================
 
 @app.route('/')
+@login_required
 def index():
-    if 'user' not in session:
-        return redirect(url_for('login'))
+    projects = load_projects()
     
-    # Statistik berechnen (WICHTIG für Dashboard!)
-    stats = {
-        'total_projects': len(projects),
-        'total_users': len(users),
-        'total_downloads': sum(p.get('downloads', 0) for p in projects),
-        'total_tokens': sum(u.get('tokens', 0) for u in users.values())
-    }
-
-    # Projekte sortieren
-    sorted_projects = sorted(projects, key=lambda x: x['created'], reverse=True)
-    recent_projects = sorted_projects[:6]
-    popular_projects = sorted(projects, key=lambda x: x.get('downloads', 0), reverse=True)[:3]
+    stats = {}
+    for cat_id in CATEGORIES:
+        cat_projects = [p for p in projects if p.get('category') == cat_id]
+        stats[cat_id] = {
+            'count': len(cat_projects),
+            'downloads': sum(p.get('downloads', 0) for p in cat_projects)
+        }
     
-    return render_template('index.html', 
-                           recent_projects=recent_projects, 
-                           popular_projects=popular_projects,
-                           stats=stats)
+    return render_template('index.html',
+                         categories=CATEGORIES,
+                         stats=stats,
+                         recent_projects=sorted(projects, key=lambda x: x.get('created', ''), reverse=True)[:6])
 
-@app.route('/category/<category_id>')
+@app.route('/kategorie/<category_id>')
+@login_required
 def category(category_id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-    
     if category_id not in CATEGORIES:
+        flash('Kategorie nicht gefunden', 'error')
         return redirect(url_for('index'))
     
-    # Filter für Unterkategorien
-    subcategory = request.args.get('sub')
+    projects = load_projects()
+    category_projects = [p for p in projects if p.get('category') == category_id]
     
-    cat_projects = [p for p in projects if p['category'] == category_id]
-    
-    if subcategory:
-        cat_projects = [p for p in cat_projects if p.get('subcategory') == subcategory]
-    
-    # Sortierung
-    sort_by = request.args.get('sort', 'newest')
-    if sort_by == 'oldest':
-        cat_projects.sort(key=lambda x: x['created'])
-    elif sort_by == 'downloads':
-        cat_projects.sort(key=lambda x: x.get('downloads', 0), reverse=True)
-    else: # newest
-        cat_projects.sort(key=lambda x: x['created'], reverse=True)
-        
-    return render_template('category.html', 
-                         category=CATEGORIES[category_id], 
-                         projects=cat_projects, 
-                         current_sort=sort_by,
-                         current_sub=subcategory)
+    return render_template('category.html',
+                         category=CATEGORIES[category_id],
+                         category_id=category_id,
+                         categories=CATEGORIES,
+                         projects=category_projects)
 
-@app.route('/project/<int:project_id>')
+@app.route('/suche')
+@login_required
+def search():
+    query = request.args.get('q', '').strip().lower()
+    projects = load_projects()
+    
+    if query:
+        results = []
+        for p in projects:
+            searchable = f"{p.get('title', '')} {p.get('description', '')} {' '.join(p.get('tags', []))}".lower()
+            if query in searchable:
+                results.append(p)
+    else:
+        results = []
+    
+    return render_template('search.html',
+                         query=query,
+                         results=results,
+                         categories=CATEGORIES)
+
+@app.route('/projekt/<int:project_id>')
+@login_required
 def project_detail(project_id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    project = next((p for p in projects if p['id'] == project_id), None)
-    if not project:
-        flash("Projekt nicht gefunden", "error")
-        return redirect(url_for('index'))
-        
-    current_user = users.get(session['user'])
-    if not current_user:
-        return redirect(url_for('logout'))
-
-    # Rechte prüfen
-    is_owner = project['author'] == session['user']
-    is_admin = current_user.get('is_admin', False)
-    has_purchased = project_id in current_user.get('downloads', []) or is_owner or is_admin
+    projects = load_projects()
+    project = next((p for p in projects if p.get('id') == project_id), None)
     
-    # Kosten berechnen
-    cost = system_settings.get('download_cost', 1)
-    if project.get('material_type') == 'worksheet_ai':
-        cost = 3 
-        
-    can_user_download = current_user.get('tokens', 0) >= cost
+    if not project:
+        flash('Projekt nicht gefunden', 'error')
+        return redirect(url_for('index'))
     
     return render_template('project.html', 
                          project=project, 
-                         is_owner=is_owner,
-                         has_purchased=has_purchased,
-                         can_user_download=can_user_download)
+                         categories=CATEGORIES)
 
-@app.route('/search')
-def search():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    query = request.args.get('q', '').lower()
-    if not query:
+# =============================================================================
+# NEU: Route für interaktive Vorschau (HTML)
+# =============================================================================
+
+@app.route('/view/<path:filename>')
+@login_required
+def view_file(filename):
+    """
+    Zeigt HTML-Dateien direkt im Browser an (für interaktive Arbeitsblätter),
+    geschützt durch Login. Verhindert externe Hotlinks.
+    """
+    # Sicherheitscheck: Nur erlaubte Dateitypen anzeigen
+    if not allowed_file(filename):
+        flash('Dateityp nicht erlaubt.', 'error')
         return redirect(url_for('index'))
-        
-    results = [
-        p for p in projects 
-        if query in p['title'].lower() 
-        or query in p.get('description', '').lower()
-        or query in p.get('author', '').lower()
-        or any(query in tag.lower() for tag in p.get('tags', []))
-    ]
     
-    return render_template('search_results.html', query=query, projects=results)
+    # Prüfen, ob es eine HTML-Datei ist
+    if filename.lower().endswith(('.html', '.htm')):
+        # Sendet die Datei so, dass der Browser sie rendert (inline)
+        return send_from_directory(app.config['UPLOAD_FOLDER'], 
+                                  filename, 
+                                  mimetype='text/html')
+    
+    # Falls jemand versucht, ein ZIP oder PDF über diese Route zu laden:
+    # Umleiten zum regulären Download (kostet Tokens!)
+    return redirect(url_for('download_file', project_id=0))
 
-# ------------------------------------------------------------------------------
-# 7. UPLOAD & DOWNLOAD
-# ------------------------------------------------------------------------------
+# =============================================================================
+# Upload-Route für Vorschau (Docker/Coolify)
+# =============================================================================
+
+@app.route('/uploads/<path:filename>')
+@login_required
+def serve_upload(filename):
+    """Serviert Dateien aus dem Upload-Ordner für PDF-Vorschau"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# =============================================================================
+# Download & Upload
+# =============================================================================
+
+@app.route('/download/<int:project_id>')
+@login_required
+def download_file(project_id):
+    """Download einer Projektdatei - mit Token-System"""
+    projects = load_projects()
+    project = next((p for p in projects if p.get('id') == project_id), None)
+    
+    if not project or not project.get('filename'):
+        flash('Datei nicht gefunden', 'error')
+        return redirect(url_for('index'))
+    
+    username = session.get('user_id')
+    users = load_users()
+    user = users.get(username, {})
+    settings = load_settings()
+    
+    # Admin braucht keine Tokens
+    if user.get('role') != 'admin':
+        download_cost = settings.get('download_cost', 1)
+        
+        if not deduct_user_tokens(username, download_cost):
+            flash(f'Nicht genug Tokens! Du benötigst {download_cost} Token für diesen Download.', 'error')
+            return redirect(url_for('project_detail', project_id=project_id))
+        
+        log_activity('token_spent', f'-{download_cost} Token für Download: {project.get("title")}', username)
+    
+    # Download-Zähler erhöhen
+    project['downloads'] = project.get('downloads', 0) + 1
+    save_projects(projects)
+    
+    log_activity('download', f'{project.get("title")}', username)
+    
+    return send_from_directory(app.config['UPLOAD_FOLDER'], 
+                              project['filename'],
+                              as_attachment=True)
 
 @app.route('/upload', methods=['GET', 'POST'])
+@login_required
 def upload():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-
-    # BERECHTIGUNGS-PRÜFUNG
-    current_user = users.get(session['user'])
-    if not current_user:
-        return redirect(url_for('logout'))
-
-    is_admin = current_user.get('is_admin', False)
-    can_upload = current_user.get('can_upload', False)
-    
-    if not is_admin and not can_upload:
-        flash("Keine Berechtigung: Uploads sind nur für freigeschaltete Kollegen möglich.", "error")
-        return redirect(url_for('index'))
-
+    """Upload-Seite für neue Projekte - mit Token-Belohnung"""
     if request.method == 'POST':
-        title = request.form['title']
-        category = request.form['category']
-        # Subcategory auslesen (WICHTIG!)
-        subcategory = request.form.get('subcategory')
-        material_type = request.form['material_type']
-        description = request.form.get('description', '')
-        tags = [t.strip() for t in request.form.get('tags', '').split(',') if t.strip()]
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        category_id = request.form.get('category')
+        subject = request.form.get('subject', '').strip()
+        material_type = request.form.get('material_type', '').strip()
+        author = request.form.get('author', session.get('username', 'Anonym')).strip()
+        tags = request.form.get('tags', '').strip()
         project_url = request.form.get('project_url', '').strip()
         
-        file = request.files['file']
+        if not title or not category_id or not material_type:
+            flash('Titel, Kategorie und Materialtyp sind erforderlich', 'error')
+            return redirect(url_for('upload'))
+        
+        file = request.files.get('file')
         filename = None
         
-        if file and allowed_file(file.filename):
-            original_filename = secure_filename(file.filename)
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            name, ext = os.path.splitext(original_filename)
-            filename = f"{name}_{timestamp}{ext}"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        if file and file.filename:
+            if allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                base, ext = os.path.splitext(filename)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{base}_{timestamp}{ext}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            else:
+                flash('Dateityp nicht erlaubt', 'error')
+                return redirect(url_for('upload'))
         
-        new_id = 1 if not projects else max(p['id'] for p in projects) + 1
+        # Mindestens Datei oder URL erforderlich
+        if not filename and not project_url:
+            flash('Bitte lade eine Datei hoch oder gib eine Projekt-URL an.', 'error')
+            return redirect(url_for('upload'))
+        
+        projects = load_projects()
+        new_id = max([p.get('id', 0) for p in projects], default=0) + 1
+        
         new_project = {
             'id': new_id,
             'title': title,
-            'category': category,
-            'subcategory': subcategory,
-            'material_type': material_type,
             'description': description,
-            'author': session['user'],
-            'created': datetime.datetime.now().isoformat(),
-            'downloads': 0,
+            'category': category_id,
+            'subject': subject,
+            'material_type': material_type,
+            'author': author,
+            'tags': [t.strip() for t in tags.split(',') if t.strip()],
             'filename': filename,
             'project_url': project_url if project_url else None,
-            'tags': tags
+            'created': datetime.now().isoformat(),
+            'downloads': 0,
+            'uploaded_by': session.get('user_id')
         }
         
         projects.append(new_project)
+        save_projects(projects)
         
-        reward = system_settings.get('upload_reward', 3)
-        current_user['tokens'] += reward
+        # Token-Belohnung für Upload (außer Admin)
+        username = session.get('user_id')
+        users = load_users()
+        user = users.get(username, {})
+        settings = load_settings()
         
-        save_data()
-        log_activity(session['user'], "Upload", f"Projekt '{title}' hochgeladen (+{reward} Tokens)")
+        if user.get('role') != 'admin':
+            upload_reward = settings.get('upload_reward', 1)
+            new_tokens = add_user_tokens(username, upload_reward)
+            log_activity('token_earned', f'+{upload_reward} Token für Upload: {title}', username)
+            flash(f'Projekt erfolgreich hochgeladen! Du hast {upload_reward} Token verdient. (Aktuell: {new_tokens} Tokens)', 'success')
+        else:
+            flash('Projekt erfolgreich hochgeladen!', 'success')
         
-        flash(f"Projekt erfolgreich hochgeladen! Du hast {reward} Tokens verdient.", "success")
-        return redirect(url_for('project_detail', project_id=new_id))
-        
-    return render_template('upload.html')
-
-@app.route('/download/<int:project_id>')
-def download_file(project_id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-        
-    project = next((p for p in projects if p['id'] == project_id), None)
-    if not project or not project['filename']:
-        flash("Datei nicht verfügbar", "error")
-        return redirect(url_for('project_detail', project_id=project_id))
-        
-    user = users.get(session['user'])
-    if not user: return redirect(url_for('logout'))
+        log_activity('project_uploaded', f'{title}')
+        return redirect(url_for('category', category_id=category_id))
     
-    is_owner = project['author'] == session['user']
-    has_purchased = project_id in user.get('downloads', [])
-    is_admin = user.get('is_admin', False)
-    
-    cost = system_settings.get('download_cost', 1)
-    if project.get('material_type') == 'worksheet_ai':
-        cost = 3
-        
-    if not is_owner and not has_purchased and not is_admin:
-        if user['tokens'] < cost:
-            flash("Nicht genügend Tokens!", "error")
-            return redirect(url_for('project_detail', project_id=project_id))
-            
-        user['tokens'] -= cost
-        user.setdefault('downloads', []).append(project_id)
-        project['downloads'] = project.get('downloads', 0) + 1
-        
-        save_data()
-        log_activity(session['user'], "Download", f"Projekt '{project['title']}' heruntergeladen (-{cost} Tokens)")
-        flash(f"Download gestartet! {cost} Tokens abgezogen.", "success")
-    
-    try:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], project['filename'], as_attachment=True)
-    except FileNotFoundError:
-        flash("Datei wurde auf dem Server nicht gefunden.", "error")
-        return redirect(url_for('project_detail', project_id=project_id))
+    return render_template('upload.html', categories=CATEGORIES)
 
-# ------------------------------------------------------------------------------
-# 8. VORSCHAU ROUTES
-# ------------------------------------------------------------------------------
-
-@app.route('/view/<filename>')
-def view_file(filename):
-    if 'user' not in session:
-        flash("Bitte erst einloggen.", "error")
-        return redirect(url_for('login'))
-    try:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-    except FileNotFoundError:
-        return "Datei nicht gefunden", 404
-
-@app.route('/serve_upload/<filename>')
-def serve_upload(filename):
-    if 'user' not in session:
-        abort(403)
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-# ------------------------------------------------------------------------------
-# 9. ADMIN BEREICH
-# ------------------------------------------------------------------------------
+# =============================================================================
+# Admin-Routen
+# =============================================================================
 
 @app.route('/admin')
+@admin_required
 def admin_dashboard():
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-        
-    # Statistiken
-    total_projects = len(projects)
-    total_users = len(users)
+    """Admin-Dashboard"""
+    projects = load_projects()
+    users = load_users()
+    activity = load_activity()
+    settings = load_settings()
+    
     total_downloads = sum(p.get('downloads', 0) for p in projects)
-    total_tokens = sum(u.get('tokens', 0) for u in users.values())
     
     downloads_by_cat = {}
-    for cat_id, cat_data in CATEGORIES.items():
-        count = sum(p.get('downloads', 0) for p in projects if p['category'] == cat_id)
+    for cat_id, cat in CATEGORIES.items():
+        cat_projects = [p for p in projects if p.get('category') == cat_id]
         downloads_by_cat[cat_id] = {
-            'name': cat_data['name'],
-            'icon': cat_data['icon'],
-            'downloads': count
+            'name': cat['name'],
+            'icon': cat['icon'],
+            'downloads': sum(p.get('downloads', 0) for p in cat_projects)
         }
-        
+    
     top_projects = sorted(projects, key=lambda x: x.get('downloads', 0), reverse=True)[:5]
-        
+    today = datetime.now().date().isoformat()
+    views_today = len([a for a in activity if a.get('timestamp', '').startswith(today)])
+    
+    # Token-Statistiken
+    total_tokens = sum(u.get('tokens', 0) for u in users.values() if u.get('role') != 'admin')
+    
     return render_template('admin/dashboard.html',
-                         total_projects=total_projects,
-                         total_users=total_users,
+                         categories=CATEGORIES,
+                         total_projects=len(projects),
                          total_downloads=total_downloads,
-                         total_tokens=total_tokens,
+                         total_users=len(users),
+                         views_today=views_today,
                          downloads_by_cat=downloads_by_cat,
                          top_projects=top_projects,
-                         recent_activity=activity_log[:10])
+                         recent_activity=activity[:15],
+                         settings=settings,
+                         total_tokens=total_tokens)
 
-@app.route('/admin/projects')
+@app.route('/admin/projekte')
+@admin_required
 def admin_projects():
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-    return render_template('admin/projects.html', projects=projects)
+    """Projektverwaltung"""
+    projects = load_projects()
+    projects = sorted(projects, key=lambda x: x.get('created', ''), reverse=True)
+    return render_template('admin/projects.html',
+                         categories=CATEGORIES,
+                         projects=projects)
 
-@app.route('/admin/users')
-def admin_users():
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-    return render_template('admin/users.html', users=users)
-
-@app.route('/admin/activity')
-def admin_activity():
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-    return render_template('admin/activity.html', activity_log=activity_log)
-
-@app.route('/admin/settings', methods=['GET', 'POST'])
-def admin_settings():
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-        
-    if request.method == 'POST':
-        try:
-            system_settings['download_cost'] = int(request.form['download_cost'])
-            system_settings['upload_reward'] = int(request.form['upload_reward'])
-            system_settings['start_tokens'] = int(request.form['start_tokens'])
-            # Synchronisieren
-            system_settings['initial_tokens'] = system_settings['start_tokens']
-            save_settings()
-            flash("Einstellungen gespeichert!", "success")
-        except ValueError:
-            flash("Bitte gültige Zahlen eingeben.", "error")
-            
-    return render_template('admin/settings.html', settings=system_settings)
-
-@app.route('/admin/delete_project/<int:project_id>', methods=['POST'])
+@app.route('/admin/projekte/<int:project_id>/delete', methods=['POST'])
+@admin_required
 def admin_delete_project(project_id):
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-        
-    project = next((p for p in projects if p['id'] == project_id), None)
+    """Projekt löschen"""
+    projects = load_projects()
+    project = next((p for p in projects if p.get('id') == project_id), None)
+    
     if project:
-        if project['filename']:
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], project['filename'])
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        if project.get('filename'):
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], project['filename'])
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except OSError:
+                    pass # Datei vielleicht schon weg
         
-        projects.remove(project)
-        save_data()
-        log_activity(session['user'], "Admin", f"Projekt {project_id} gelöscht")
-        flash("Projekt gelöscht.", "success")
-        
+        projects = [p for p in projects if p.get('id') != project_id]
+        save_projects(projects)
+        log_activity('project_deleted', f'Projekt gelöscht: {project.get("title")}')
+        flash('Projekt gelöscht.', 'success')
+    else:
+        flash('Projekt nicht gefunden.', 'error')
+    
     return redirect(url_for('admin_projects'))
 
-@app.route('/admin/delete_user/<username>', methods=['POST'])
-def admin_delete_user(username):
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-    
-    if username in users:
-        if users[username].get('is_admin'):
-            flash("Administratoren können nicht gelöscht werden.", "error")
-        else:
-            del users[username]
-            save_data()
-            log_activity(session['user'], "Admin", f"User {username} gelöscht")
-            flash(f"Benutzer {username} gelöscht.", "success")
-            
-    return redirect(url_for('admin_users'))
+@app.route('/admin/benutzer')
+@admin_required
+def admin_users():
+    """Benutzerverwaltung"""
+    users = load_users()
+    settings = load_settings()
+    return render_template('admin/users.html',
+                         categories=CATEGORIES,
+                         users=users,
+                         settings=settings)
 
-# --- WIEDERHERGESTELLTE ADMIN ROUTEN (DIE VORHER GEFEHLT HABEN) ---
-
-@app.route('/admin/create_user', methods=['GET', 'POST'])
+@app.route('/admin/benutzer/neu', methods=['GET', 'POST'])
+@admin_required
 def admin_create_user():
-    """Wurde von users.html aufgerufen, fehlte in der Zwischenversion."""
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-        
+    """Neuen Benutzer anlegen"""
+    settings = load_settings()
+    
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        name = request.form.get('name', '').strip()
+        role = request.form.get('role', 'user')
+        tokens = int(request.form.get('tokens', settings.get('initial_tokens', 3)))
         
+        if not username or not password:
+            flash('Benutzername und Passwort erforderlich.', 'error')
+            return redirect(url_for('admin_create_user'))
+        
+        if len(password) < 6:
+            flash('Passwort muss mindestens 6 Zeichen haben.', 'error')
+            return redirect(url_for('admin_create_user'))
+        
+        users = load_users()
         if username in users:
-            flash("Benutzer existiert bereits", "error")
-        else:
-            users[username] = {
-                "password": generate_password_hash(password),
-                "tokens": system_settings.get('start_tokens', 3),
-                "is_admin": False,
-                "role": "user",
-                "can_upload": False,
-                "downloads": [],
-                "name": username,
-                "created": datetime.datetime.now().isoformat()
-            }
-            save_data()
-            log_activity(session['user'], "Admin", f"User {username} manuell erstellt")
-            flash(f"Benutzer {username} erfolgreich erstellt.", "success")
-            return redirect(url_for('admin_users'))
+            flash('Benutzername bereits vergeben.', 'error')
+            return redirect(url_for('admin_create_user'))
+        
+        users[username] = {
+            'password': generate_password_hash(password),
+            'role': role,
+            'name': name or username,
+            'tokens': 999999 if role == 'admin' else tokens,
+            'created': datetime.now().isoformat()
+        }
+        save_users(users)
+        log_activity('user_created', f'Neuer Benutzer: {username} (Tokens: {tokens})')
+        flash(f'Benutzer "{username}" erstellt mit {tokens} Tokens.', 'success')
+        return redirect(url_for('admin_users'))
     
-    # Fallback falls kein dediziertes Template existiert
-    return render_template('register.html', admin_mode=True)
+    return render_template('admin/user_form.html', 
+                         categories=CATEGORIES, 
+                         edit_user=None,
+                         settings=settings)
 
-@app.route('/admin/set_user_tokens/<username>', methods=['POST'])
+@app.route('/admin/benutzer/<username>/tokens', methods=['POST'])
+@admin_required
 def admin_set_user_tokens(username):
-    """Token-Bearbeitung direkt aus der User-Liste."""
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
-        
+    """Token-Anzahl für Benutzer setzen"""
+    tokens = int(request.form.get('tokens', 0))
+    
+    users = load_users()
+    if username in users and users[username].get('role') != 'admin':
+        old_tokens = users[username].get('tokens', 0)
+        users[username]['tokens'] = tokens
+        save_users(users)
+        log_activity('tokens_adjusted', f'{username}: {old_tokens} → {tokens} Tokens')
+        flash(f'Tokens für {username} auf {tokens} gesetzt.', 'success')
+    else:
+        flash('Benutzer nicht gefunden oder Admin.', 'error')
+    
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/benutzer/<username>/delete', methods=['POST'])
+@admin_required
+def admin_delete_user(username):
+    """Benutzer löschen"""
+    if username == session.get('user_id'):
+        flash('Du kannst dich nicht selbst löschen.', 'error')
+        return redirect(url_for('admin_users'))
+    
+    users = load_users()
     if username in users:
-        try:
-            new_tokens = int(request.form.get('tokens', 0))
-            users[username]['tokens'] = new_tokens
-            save_data()
-            flash(f"Tokens für {username} aktualisiert.", "success")
-        except ValueError:
-            flash("Ungültige Zahl.", "error")
-            
+        del users[username]
+        save_users(users)
+        log_activity('user_deleted', f'Benutzer gelöscht: {username}')
+        flash('Benutzer gelöscht.', 'success')
+    
     return redirect(url_for('admin_users'))
 
-@app.route('/admin/users/toggle_upload/<username>', methods=['POST'])
-def admin_toggle_upload(username):
-    """Neues Feature: Upload-Recht umschalten."""
-    if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
-        return redirect(url_for('index'))
+@app.route('/admin/aktivitaet')
+@admin_required
+def admin_activity():
+    """Aktivitätslog"""
+    activity = load_activity()
     
-    target_user = users.get(username)
-    if target_user:
-        current_status = target_user.get('can_upload', False)
-        target_user['can_upload'] = not current_status
-        save_data()
+    action_filter = request.args.get('action')
+    if action_filter:
+        activity = [a for a in activity if a.get('action') == action_filter]
+    
+    all_actions = list(set(a.get('action') for a in load_activity()))
+    
+    return render_template('admin/activity.html',
+                         categories=CATEGORIES,
+                         activity=activity[:100],
+                         action_filter=action_filter,
+                         all_actions=sorted(all_actions))
+
+@app.route('/admin/einstellungen', methods=['GET', 'POST'])
+@admin_required
+def admin_settings():
+    """Admin-Einstellungen inkl. Token-System"""
+    settings = load_settings()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
         
-        status_text = "erteilt" if not current_status else "entzogen"
-        log_activity(session['user'], "Admin", f"Upload-Recht für {username} {status_text}")
-        flash(f"Upload-Recht für '{username}' wurde {status_text}.", "success")
+        if action == 'change_password':
+            current_password = request.form.get('current_password', '')
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            
+            users = load_users()
+            user = users.get(session.get('user_id'))
+            
+            if not check_password_hash(user.get('password', ''), current_password):
+                flash('Aktuelles Passwort ist falsch.', 'error')
+            elif new_password != confirm_password:
+                flash('Passwörter stimmen nicht überein.', 'error')
+            elif len(new_password) < 6:
+                flash('Neues Passwort muss mindestens 6 Zeichen haben.', 'error')
+            else:
+                users[session.get('user_id')]['password'] = generate_password_hash(new_password)
+                save_users(users)
+                log_activity('password_changed', 'Admin-Passwort geändert')
+                flash('Passwort erfolgreich geändert.', 'success')
+        
+        elif action == 'save_token_settings':
+            settings['initial_tokens'] = int(request.form.get('initial_tokens', 3))
+            settings['download_cost'] = int(request.form.get('download_cost', 1))
+            settings['upload_reward'] = int(request.form.get('upload_reward', 1))
+            save_settings(settings)
+            log_activity('settings_changed', f'Token-Einstellungen geändert: Start={settings["initial_tokens"]}, Kosten={settings["download_cost"]}, Belohnung={settings["upload_reward"]}')
+            flash('Token-Einstellungen gespeichert.', 'success')
+        
+        return redirect(url_for('admin_settings'))
     
-    return redirect(url_for('admin_users'))
+    users = load_users()
+    user = users.get(session.get('user_id'), {})
+    
+    return render_template('admin/settings.html',
+                         categories=CATEGORIES,
+                         user=user,
+                         settings=settings)
 
-# ------------------------------------------------------------------------------
-# 10. APP START
-# ------------------------------------------------------------------------------
+# =============================================================================
+# API-Routen
+# =============================================================================
+
+@app.route('/api/projects')
+@login_required
+def api_projects():
+    projects = load_projects()
+    return jsonify(projects)
+
+@app.route('/api/user/tokens')
+@login_required
+def api_user_tokens():
+    """Gibt aktuelle Token-Anzahl zurück"""
+    username = session.get('user_id')
+    users = load_users()
+    user = users.get(username, {})
+    settings = load_settings()
+    
+    return jsonify({
+        'tokens': user.get('tokens', 0),
+        'is_admin': user.get('role') == 'admin',
+        'download_cost': settings.get('download_cost', 1),
+        'upload_reward': settings.get('upload_reward', 1),
+        'can_download': can_download(username)
+    })
+
+# =============================================================================
+# Error Handler
+# =============================================================================
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', 
+                         error_code=404, 
+                         error_message='Seite nicht gefunden',
+                         categories=CATEGORIES), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template('error.html', 
+                         error_code=500, 
+                         error_message='Interner Serverfehler',
+                         categories=CATEGORIES), 500
+
+# =============================================================================
+# App Start
+# =============================================================================
 
 if __name__ == '__main__':
-    # Nur für lokale Entwicklung
     app.run(debug=True, host='0.0.0.0', port=5000)
