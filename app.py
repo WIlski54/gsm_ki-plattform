@@ -12,32 +12,34 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # ------------------------------------------------------------------------------
 
 app = Flask(__name__)
-# ACHTUNG: In Produktion ändern!
+# ACHTUNG: Ändere diesen Schlüssel für die Produktion!
 app.secret_key = "DEIN_GEHEIMER_SCHLUESSEL_HIER_AENDERN"
 
-# Pfade
+# Pfade für Persistenz (Docker Volumes)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 
+# Sicherstellen, dass Verzeichnisse existieren
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # Max 50 MB Upload
 
+# Erlaubte Dateiendungen
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'mp3', 'mp4', 'zip', 'html', 'htm'}
 
+# Dateinamen für JSON-Datenbanken
 USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 PROJECTS_FILE = os.path.join(DATA_DIR, 'projects.json')
 ACTIVITY_FILE = os.path.join(DATA_DIR, 'activity.json')
 SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
 
 # ------------------------------------------------------------------------------
-# 2. DATENSTRUKTUREN (KATEGORIEN & MATERIAL)
+# 2. DATENSTRUKTUREN (MIT UNTERKATEGORIEN)
 # ------------------------------------------------------------------------------
 
-# Hier fehlte in meiner Kurzversion die Struktur für Unterordner!
 CATEGORIES = {
     'naturwissenschaften': {
         'name': 'Naturwissenschaften', 
@@ -115,19 +117,21 @@ DEFAULT_SETTINGS = {
     'download_cost': 1,
     'upload_reward': 3,
     'start_tokens': 3,
-    'initial_tokens': 3
+    'initial_tokens': 3  # Wichtig für Kompatibilität mit users.html
 }
 
+# Globale Variablen für Daten (werden beim Start geladen)
 users = {}
 projects = []
 activity_log = []
 system_settings = {}
 
 # ------------------------------------------------------------------------------
-# 3. HILFSFUNKTIONEN
+# 3. HILFSFUNKTIONEN (DATENBANK & LOGIK)
 # ------------------------------------------------------------------------------
 
 def load_data():
+    """Lädt alle Daten aus den JSON-Dateien."""
     global users, projects, activity_log, system_settings
     
     # User laden
@@ -135,9 +139,11 @@ def load_data():
         try:
             with open(USERS_FILE, 'r', encoding='utf-8') as f:
                 users = json.load(f)
-        except: users = {}
+        except Exception as e:
+            print(f"Fehler beim Laden der User: {e}")
+            users = {}
             
-    # Admin Check / Migration
+    # MIGRATION: Sicherstellen, dass neue Felder existieren
     for name, data in users.items():
         if 'can_upload' not in data:
             data['can_upload'] = data.get('is_admin', False)
@@ -146,6 +152,7 @@ def load_data():
         if 'name' not in data:
             data['name'] = name
     
+    # Falls keine User existieren -> Standard-Admin erstellen
     if not users:
         users = {
             "Administrator": {
@@ -160,67 +167,83 @@ def load_data():
         }
         save_data()
 
+    # Projekte laden
     if os.path.exists(PROJECTS_FILE):
         try:
             with open(PROJECTS_FILE, 'r', encoding='utf-8') as f:
                 projects = json.load(f)
-        except: projects = []
+        except Exception as e:
+            print(f"Fehler beim Laden der Projekte: {e}")
+            projects = []
     
+    # Aktivitäten laden
     if os.path.exists(ACTIVITY_FILE):
         try:
             with open(ACTIVITY_FILE, 'r', encoding='utf-8') as f:
                 activity_log = json.load(f)
-        except: activity_log = []
+        except Exception as e:
+            print(f"Fehler beim Laden der Aktivitäten: {e}")
+            activity_log = []
 
+    # Einstellungen laden
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 loaded = json.load(f)
                 system_settings = DEFAULT_SETTINGS.copy()
                 system_settings.update(loaded)
-        except:
+        except Exception as e:
+            print(f"Fehler beim Laden der Settings: {e}")
             system_settings = DEFAULT_SETTINGS.copy()
     else:
         system_settings = DEFAULT_SETTINGS.copy()
         save_settings()
 
 def save_data():
+    """Speichert User und Projekte in JSON-Dateien."""
     try:
         with open(USERS_FILE, 'w', encoding='utf-8') as f:
             json.dump(users, f, indent=4)
         with open(PROJECTS_FILE, 'w', encoding='utf-8') as f:
             json.dump(projects, f, indent=4)
     except Exception as e:
-        print(f"Fehler beim Speichern: {e}")
+        print(f"Fehler beim Speichern der Daten: {e}")
 
 def save_activity():
+    """Speichert das Aktivitätslog."""
     try:
         with open(ACTIVITY_FILE, 'w', encoding='utf-8') as f:
             json.dump(activity_log, f, indent=4)
-    except: pass
+    except Exception as e:
+        print(f"Fehler beim Speichern der Aktivitäten: {e}")
 
 def save_settings():
+    """Speichert die Systemeinstellungen."""
     try:
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(system_settings, f, indent=4)
-    except: pass
+    except Exception as e:
+        print(f"Fehler beim Speichern der Settings: {e}")
 
 def log_activity(user, action, details):
+    """Schreibt einen Eintrag ins Logbuch."""
     entry = {
         "timestamp": datetime.datetime.now().isoformat(),
         "user": user,
         "action": action,
         "details": details
     }
-    activity_log.insert(0, entry)
-    if len(activity_log) > 200:
+    activity_log.insert(0, entry) # Neuester Eintrag oben
+    if len(activity_log) > 200: # Log begrenzen
         activity_log.pop()
     save_activity()
 
 def allowed_file(filename):
+    """Prüft die Dateiendung."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_file_icon(filename):
+    """Gibt ein passendes Emoji für den Dateityp zurück."""
     if not filename: return '📄'
     ext = filename.rsplit('.', 1)[1].lower()
     icons = {
@@ -232,21 +255,23 @@ def get_file_icon(filename):
     }
     return icons.get(ext, '📄')
 
+# Beim Start einmal laden
 load_data()
 
 # ------------------------------------------------------------------------------
-# 4. CONTEXT & SICHERHEIT
+# 4. CONTEXT PROCESSOR & SICHERHEIT
 # ------------------------------------------------------------------------------
 
+# NOTBREMSE: Verhindert Abstürze durch alte Cookies
 @app.before_request
 def check_user_validity():
-    # Verhindert Absturz wenn User in Session aber nicht in DB
     if 'user' in session and session['user'] not in users:
         session.pop('user', None)
         return redirect(url_for('login'))
 
 @app.context_processor
 def inject_global_vars():
+    """Stellt Variablen global in allen Templates zur Verfügung."""
     user_data = None
     is_admin = False
     can_upload = False
@@ -257,10 +282,13 @@ def inject_global_vars():
         user_data = users.get(session['user'])
         if user_data:
             current_user_obj = user_data
+            # Workaround falls username nicht im Objekt ist
             if 'username' not in current_user_obj:
                 current_user_obj['username'] = session['user']
+                
             user_tokens = user_data.get('tokens', 0)
             is_admin = user_data.get('is_admin', False)
+            # Admin darf immer, User nur wenn Flag 'can_upload' True ist
             can_upload = is_admin or user_data.get('can_upload', False)
 
     return {
@@ -270,15 +298,15 @@ def inject_global_vars():
         'material_types': MATERIAL_TYPES,
         'user_tokens': user_tokens,
         'is_admin': is_admin,
-        'can_upload': can_upload,
+        'can_upload': can_upload, 
         'token_settings': system_settings,
-        'settings': system_settings,
-        'current_user': current_user_obj,
+        'settings': system_settings, # Alias für users.html
+        'current_user': current_user_obj, 
         'get_file_icon': get_file_icon
     }
 
 # ------------------------------------------------------------------------------
-# 5. AUTHENTIFIZIERUNG
+# 5. AUTH ROUTES (LOGIN / REGISTER / LOGOUT)
 # ------------------------------------------------------------------------------
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -307,12 +335,13 @@ def register():
         elif len(password) < 4:
             flash("Passwort muss mindestens 4 Zeichen lang sein", "error")
         else:
+            # Neuer User: Standard-Tokens, kein Admin, Standardmäßig KEIN Upload-Recht
             users[username] = {
                 "password": generate_password_hash(password),
                 "tokens": system_settings.get('start_tokens', 3),
                 "is_admin": False,
                 "role": "user",
-                "can_upload": False,
+                "can_upload": False, # Sicherheit: Standardmäßig aus
                 "downloads": [],
                 "name": username,
                 "created": datetime.datetime.now().isoformat()
@@ -332,7 +361,7 @@ def logout():
     return redirect(url_for('login'))
 
 # ------------------------------------------------------------------------------
-# 6. HAUPTROUTEN (USER BEREICH)
+# 6. MAIN ROUTES (USER BEREICH)
 # ------------------------------------------------------------------------------
 
 @app.route('/')
@@ -340,6 +369,7 @@ def index():
     if 'user' not in session:
         return redirect(url_for('login'))
     
+    # Statistik berechnen (WICHTIG für Dashboard!)
     stats = {
         'total_projects': len(projects),
         'total_users': len(users),
@@ -347,6 +377,7 @@ def index():
         'total_tokens': sum(u.get('tokens', 0) for u in users.values())
     }
 
+    # Projekte sortieren
     sorted_projects = sorted(projects, key=lambda x: x['created'], reverse=True)
     recent_projects = sorted_projects[:6]
     popular_projects = sorted(projects, key=lambda x: x.get('downloads', 0), reverse=True)[:3]
@@ -364,7 +395,7 @@ def category(category_id):
     if category_id not in CATEGORIES:
         return redirect(url_for('index'))
     
-    # Erweiterte Filterlogik für Unterkategorien (hatte gefehlt)
+    # Filter für Unterkategorien
     subcategory = request.args.get('sub')
     
     cat_projects = [p for p in projects if p['category'] == category_id]
@@ -372,6 +403,7 @@ def category(category_id):
     if subcategory:
         cat_projects = [p for p in cat_projects if p.get('subcategory') == subcategory]
     
+    # Sortierung
     sort_by = request.args.get('sort', 'newest')
     if sort_by == 'oldest':
         cat_projects.sort(key=lambda x: x['created'])
@@ -400,10 +432,12 @@ def project_detail(project_id):
     if not current_user:
         return redirect(url_for('logout'))
 
+    # Rechte prüfen
     is_owner = project['author'] == session['user']
     is_admin = current_user.get('is_admin', False)
     has_purchased = project_id in current_user.get('downloads', []) or is_owner or is_admin
     
+    # Kosten berechnen
     cost = system_settings.get('download_cost', 1)
     if project.get('material_type') == 'worksheet_ai':
         cost = 3 
@@ -444,6 +478,7 @@ def upload():
     if 'user' not in session:
         return redirect(url_for('login'))
 
+    # BERECHTIGUNGS-PRÜFUNG
     current_user = users.get(session['user'])
     if not current_user:
         return redirect(url_for('logout'))
@@ -458,7 +493,7 @@ def upload():
     if request.method == 'POST':
         title = request.form['title']
         category = request.form['category']
-        # Wichtig: Subcategory auslesen (hatte gefehlt)
+        # Subcategory auslesen (WICHTIG!)
         subcategory = request.form.get('subcategory')
         material_type = request.form['material_type']
         description = request.form.get('description', '')
@@ -480,7 +515,7 @@ def upload():
             'id': new_id,
             'title': title,
             'category': category,
-            'subcategory': subcategory, # Hinzugefügt
+            'subcategory': subcategory,
             'material_type': material_type,
             'description': description,
             'author': session['user'],
@@ -573,7 +608,7 @@ def admin_dashboard():
     if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
         
-    # Statistiken berechnen
+    # Statistiken
     total_projects = len(projects)
     total_users = len(users)
     total_downloads = sum(p.get('downloads', 0) for p in projects)
@@ -659,7 +694,7 @@ def admin_delete_project(project_id):
 def admin_delete_user(username):
     if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
-        
+    
     if username in users:
         if users[username].get('is_admin'):
             flash("Administratoren können nicht gelöscht werden.", "error")
@@ -671,7 +706,7 @@ def admin_delete_user(username):
             
     return redirect(url_for('admin_users'))
 
-# --- REKONSTRUIERTE ADMIN ROUTEN ---
+# --- WIEDERHERGESTELLTE ADMIN ROUTEN (DIE VORHER GEFEHLT HABEN) ---
 
 @app.route('/admin/create_user', methods=['GET', 'POST'])
 def admin_create_user():
@@ -701,6 +736,7 @@ def admin_create_user():
             flash(f"Benutzer {username} erfolgreich erstellt.", "success")
             return redirect(url_for('admin_users'))
     
+    # Fallback falls kein dediziertes Template existiert
     return render_template('register.html', admin_mode=True)
 
 @app.route('/admin/set_user_tokens/<username>', methods=['POST'])
@@ -722,6 +758,7 @@ def admin_set_user_tokens(username):
 
 @app.route('/admin/users/toggle_upload/<username>', methods=['POST'])
 def admin_toggle_upload(username):
+    """Neues Feature: Upload-Recht umschalten."""
     if 'user' not in session or not users.get(session['user'], {}).get('is_admin'):
         return redirect(url_for('index'))
     
