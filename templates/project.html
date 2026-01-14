@@ -26,7 +26,38 @@
         
         <div class="lg:col-span-3">
             
-            {% if project.filename and project.filename.lower().endswith('.pdf') %}
+            {# 1. PRIORITÄT: GitHub / Externe URL (Iframe) #}
+            {% if project.project_url %}
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col h-[600px] relative group">
+                <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50">
+                    <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                        <i data-lucide="play-circle" class="w-5 h-5 text-{{ cat.color }}-600"></i>
+                        Interaktive Vorschau
+                    </h2>
+                    <a href="{{ project.project_url }}" target="_blank" 
+                       class="text-xs font-medium text-{{ cat.color }}-700 hover:underline flex items-center gap-1">
+                        <i data-lucide="maximize" class="w-3 h-3"></i> Vollbild
+                    </a>
+                </div>
+                
+                <div class="flex-grow bg-zinc-100 relative">
+                    <iframe src="{{ project.project_url }}" 
+                            class="w-full h-full border-0"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+                            title="Interaktive Vorschau">
+                    </iframe>
+                </div>
+                
+                <div class="px-6 py-3 bg-zinc-900 text-white text-xs flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="github" class="w-4 h-4"></i>
+                        <span>Live-Vorschau via GitHub Pages</span>
+                    </div>
+                </div>
+            </div>
+
+            {# 2. PRIORITÄT: PDF Datei #}
+            {% elif project.filename and project.filename.lower().endswith('.pdf') %}
             <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
                     <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
@@ -57,6 +88,7 @@
                 </div>
             </div>
 
+            {# 3. PRIORITÄT: Lokale HTML Datei #}
             {% elif project.filename and project.filename.lower().endswith(('.html', '.htm')) %}
             <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
                 <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50">
@@ -84,6 +116,7 @@
                 </div>
             </div>
 
+            {# 4. PRIORITÄT: Sonstiges (ZIP ohne URL, Bilder, etc.) #}
             {% else %}
             <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
                 <div class="p-12 text-center">
@@ -181,20 +214,14 @@
                 
                 <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-200 space-y-3">
                     
-                    {% if project.project_url %}
-                    <a href="{{ project.project_url }}" target="_blank" rel="noopener"
-                       class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-500 hover:to-indigo-500 transition-all shadow-lg shadow-blue-500/20">
-                        <i data-lucide="external-link" class="w-5 h-5"></i>
-                        Online öffnen
-                    </a>
-                    {% endif %}
+                    {# HIER WURDE DER "ONLINE ÖFFNEN" BUTTON ENTFERNT #}
                     
                     {% if project.filename %}
                         {% if is_admin %}
                         <a href="{{ url_for('download_file', project_id=project.id) }}" 
                            class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-{{ cat.color }}-600 to-{{ cat.color }}-700 text-white font-semibold hover:from-{{ cat.color }}-500 hover:to-{{ cat.color }}-600 transition-all shadow-lg shadow-{{ cat.color }}-500/20">
                             <i data-lucide="download" class="w-5 h-5"></i>
-                            {% if project.filename and project.filename.lower().endswith(('.html', '.htm')) %}
+                            {% if project.filename and project.filename.lower().endswith(('.html', '.htm', '.zip')) %}
                                 Quellcode herunterladen
                             {% else %}
                                 Jetzt herunterladen
@@ -205,7 +232,7 @@
                         <a href="{{ url_for('download_file', project_id=project.id) }}" 
                            class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-{{ cat.color }}-600 to-{{ cat.color }}-700 text-white font-semibold hover:from-{{ cat.color }}-500 hover:to-{{ cat.color }}-600 transition-all shadow-lg shadow-{{ cat.color }}-500/20">
                             <i data-lucide="download" class="w-5 h-5"></i>
-                            {% if project.filename and project.filename.lower().endswith(('.html', '.htm')) %}
+                            {% if project.filename and project.filename.lower().endswith(('.html', '.htm', '.zip')) %}
                                 Quellcode herunterladen & besitzen
                             {% else %}
                                 Jetzt herunterladen
