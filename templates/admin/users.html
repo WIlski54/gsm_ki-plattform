@@ -17,7 +17,7 @@
             <h1 class="font-display font-bold text-3xl text-zinc-900">Benutzerverwaltung</h1>
             <p class="text-zinc-500 mt-1">{{ users|length }} Benutzer registriert</p>
         </div>
-        </div>
+    </div>
 
     <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
@@ -43,7 +43,8 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            {% if user.is_admin %}
+                            {# KORRIGIERT: user.get('role') statt user.is_admin #}
+                            {% if user.get('role') == 'admin' %}
                                 <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                     <i data-lucide="shield" class="w-3 h-3"></i> Admin
                                 </span>
@@ -55,13 +56,15 @@
                         </td>
                         
                         <td class="px-6 py-4 text-center">
-                            {% if user.is_admin %}
+                            {# KORRIGIERT: user.get('role') statt user.is_admin #}
+                            {% if user.get('role') == 'admin' %}
                                 <span class="text-xs text-zinc-400 flex items-center justify-center gap-1" title="Admins dürfen immer hochladen">
                                     <i data-lucide="check-circle" class="w-3 h-3"></i> Immer aktiv
                                 </span>
                             {% else %}
                                 <form action="{{ url_for('admin_toggle_upload', username=username) }}" method="POST">
-                                    {% if user.can_upload %}
+                                    {# KORRIGIERT: user.get('can_upload', True) mit Default-Wert #}
+                                    {% if user.get('can_upload', True) %}
                                         <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors border border-green-200" title="Klicken zum Sperren">
                                             <i data-lucide="unlock" class="w-3 h-3"></i> Erlaubt
                                         </button>
@@ -75,11 +78,12 @@
                         </td>
 
                         <td class="px-6 py-4 text-center font-mono text-sm text-zinc-600">
-                            {{ user.tokens }} 🪙
+                            {{ user.get('tokens', 0) }} 🪙
                         </td>
                         
                         <td class="px-6 py-4 text-right">
-                            {% if not user.is_admin %}
+                            {# KORRIGIERT: user.get('role') statt user.is_admin #}
+                            {% if user.get('role') != 'admin' %}
                             <form action="{{ url_for('admin_delete_user', username=username) }}" method="POST" onsubmit="return confirm('Benutzer {{ username }} wirklich löschen? Alle Daten gehen verloren.');" class="inline">
                                 <button type="submit" class="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Benutzer löschen">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>

@@ -21,7 +21,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-producti
 
 # Daten-Verzeichnis: Hier liegen die JSON-Dateien
 DATA_DIR = os.environ.get('DATA_DIR', 'data')
-os.makedirs(DATA_DIR, exist_ok=True)  # Erstellt den Ordner, falls er fehlt
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Upload-Verzeichnis: Hier landen die PDFs
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
@@ -30,7 +30,7 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max
 
 ALLOWED_EXTENSIONS = {'html', 'htm', 'css', 'js', 'py', 'zip', 'pdf', 'md', 'txt', 'json'}
 
-# Datendateien - Jetzt sicher im data-Ordner
+# Datendateien
 PROJECTS_FILE = os.path.join(DATA_DIR, 'projects.json')
 USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 ACTIVITY_FILE = os.path.join(DATA_DIR, 'activity.json')
@@ -40,7 +40,6 @@ SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
 # Konstanten & Kategorien
 # =============================================================================
 
-# Fachbereiche / Kategorien
 CATEGORIES = {
     'naturwissenschaften': {
         'name': 'Naturwissenschaften',
@@ -86,7 +85,6 @@ CATEGORIES = {
     }
 }
 
-# Einheitliche Materialtypen für alle Fächer
 MATERIAL_TYPES = [
     {'id': 'folie', 'name': 'Folie/Poster', 'icon': '🖼️'},
     {'id': 'arbeitsblatt', 'name': 'Arbeitsblatt', 'icon': '📝'},
@@ -94,11 +92,10 @@ MATERIAL_TYPES = [
     {'id': 'ki', 'name': 'Arbeitsblatt (KI)', 'icon': '🤖'}
 ]
 
-# Standard Token-Einstellungen
 DEFAULT_SETTINGS = {
-    'initial_tokens': 3,      # Start-Token für neue User
-    'download_cost': 1,       # Token-Kosten pro Download
-    'upload_reward': 1        # Token-Belohnung pro Upload
+    'initial_tokens': 3,
+    'download_cost': 1,
+    'upload_reward': 1
 }
 
 # =============================================================================
@@ -106,7 +103,6 @@ DEFAULT_SETTINGS = {
 # =============================================================================
 
 def load_json(filepath, default=None):
-    """Lädt JSON-Datei, gibt default zurück wenn nicht vorhanden"""
     if default is None:
         default = []
     if os.path.exists(filepath):
@@ -118,8 +114,6 @@ def load_json(filepath, default=None):
     return default
 
 def save_json(filepath, data):
-    """Speichert Daten in JSON-Datei"""
-    # Sicherstellen, dass das Verzeichnis existiert (redundant aber sicher)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -144,7 +138,6 @@ def save_activity(activity):
 
 def load_settings():
     settings = load_json(SETTINGS_FILE, {})
-    # Merge mit Defaults
     for key, value in DEFAULT_SETTINGS.items():
         if key not in settings:
             settings[key] = value
@@ -158,22 +151,19 @@ def save_settings(settings):
 # =============================================================================
 
 def get_user_tokens(username):
-    """Gibt Token-Anzahl eines Users zurück"""
     users = load_users()
     user = users.get(username, {})
     return user.get('tokens', 0)
 
 def set_user_tokens(username, tokens):
-    """Setzt Token-Anzahl für einen User"""
     users = load_users()
     if username in users:
-        users[username]['tokens'] = max(0, tokens)  # Nie negativ
+        users[username]['tokens'] = max(0, tokens)
         save_users(users)
         return True
     return False
 
 def add_user_tokens(username, amount):
-    """Fügt Tokens hinzu"""
     users = load_users()
     if username in users:
         current = users[username].get('tokens', 0)
@@ -183,7 +173,6 @@ def add_user_tokens(username, amount):
     return 0
 
 def deduct_user_tokens(username, amount):
-    """Zieht Tokens ab, gibt True zurück wenn erfolgreich"""
     users = load_users()
     if username in users:
         current = users[username].get('tokens', 0)
@@ -194,7 +183,6 @@ def deduct_user_tokens(username, amount):
     return False
 
 def can_download(username):
-    """Prüft ob User downloaden kann (genug Tokens oder Admin)"""
     users = load_users()
     user = users.get(username, {})
     if user.get('role') == 'admin':
@@ -203,11 +191,24 @@ def can_download(username):
     return user.get('tokens', 0) >= settings.get('download_cost', 1)
 
 # =============================================================================
+# Upload-Recht-System (NEU)
+# =============================================================================
+
+def can_upload(username):
+    """Prüft ob User uploaden darf (Admin immer, User nur wenn erlaubt)"""
+    users = load_users()
+    user = users.get(username, {})
+    # Admin darf immer
+    if user.get('role') == 'admin':
+        return True
+    # User: prüfe can_upload Feld (Standard: True für Abwärtskompatibilität)
+    return user.get('can_upload', True)
+
+# =============================================================================
 # Aktivitäts-Logging
 # =============================================================================
 
 def log_activity(action, details="", user=None):
-    """Loggt eine Aktivität"""
     activity = load_activity()
     entry = {
         'id': len(activity) + 1,
@@ -227,14 +228,14 @@ def log_activity(action, details="", user=None):
 # =============================================================================
 
 def init_admin():
-    """Erstellt Admin-Account falls nicht vorhanden"""
     users = load_users()
     if 'admin' not in users:
         users['admin'] = {
             'password': generate_password_hash('admin123'),
             'role': 'admin',
             'name': 'Administrator',
-            'tokens': 999999,  # Admin hat unbegrenzt
+            'tokens': 999999,
+            'can_upload': True,
             'created': datetime.now().isoformat()
         }
         save_users(users)
@@ -245,12 +246,10 @@ def init_admin():
         print("   Bitte Passwort nach erstem Login ändern!")
         print("=" * 60)
     
-    # Settings initialisieren
     if not os.path.exists(SETTINGS_FILE):
         save_settings(DEFAULT_SETTINGS)
 
 def login_required(f):
-    """Decorator für geschützte Routen"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -260,7 +259,6 @@ def login_required(f):
     return decorated_function
 
 def admin_required(f):
-    """Decorator für Admin-Routen"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -275,7 +273,6 @@ def admin_required(f):
     return decorated_function
 
 def get_current_user():
-    """Gibt aktuellen User zurück oder None"""
     if 'user_id' not in session:
         return None
     users = load_users()
@@ -303,22 +300,20 @@ def get_file_icon(filename):
 def inject_globals():
     user = get_current_user()
     settings = load_settings()
+    username = session.get('user_id')
     return dict(
         current_user=user, 
         is_admin=user and user.get('role') == 'admin',
         material_types=MATERIAL_TYPES,
         token_settings=settings,
         user_tokens=user.get('tokens', 0) if user else 0,
-        can_user_download=can_download(session.get('user_id')) if user else False
+        can_user_download=can_download(username) if user else False,
+        can_user_upload=can_upload(username) if user else False
     )
 
-# Jinja2 Filter
 app.jinja_env.globals['get_file_icon'] = get_file_icon
 
-# Upload-Ordner erstellen (sicherheitshalber)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Admin initialisieren
 init_admin()
 
 # =============================================================================
@@ -432,40 +427,12 @@ def project_detail(project_id):
                          categories=CATEGORIES)
 
 # =============================================================================
-# NEU: Route für interaktive Vorschau (HTML)
-# =============================================================================
-
-@app.route('/view/<path:filename>')
-@login_required
-def view_file(filename):
-    """
-    Zeigt HTML-Dateien direkt im Browser an (für interaktive Arbeitsblätter),
-    geschützt durch Login. Verhindert externe Hotlinks.
-    """
-    # Sicherheitscheck: Nur erlaubte Dateitypen anzeigen
-    if not allowed_file(filename):
-        flash('Dateityp nicht erlaubt.', 'error')
-        return redirect(url_for('index'))
-    
-    # Prüfen, ob es eine HTML-Datei ist
-    if filename.lower().endswith(('.html', '.htm')):
-        # Sendet die Datei so, dass der Browser sie rendert (inline)
-        return send_from_directory(app.config['UPLOAD_FOLDER'], 
-                                  filename, 
-                                  mimetype='text/html')
-    
-    # Falls jemand versucht, ein ZIP oder PDF über diese Route zu laden:
-    # Umleiten zum regulären Download (kostet Tokens!)
-    return redirect(url_for('download_file', project_id=0))
-
-# =============================================================================
-# Upload-Route für Vorschau (Docker/Coolify)
+# Upload-Route für Vorschau (für Docker/Coolify)
 # =============================================================================
 
 @app.route('/uploads/<path:filename>')
 @login_required
 def serve_upload(filename):
-    """Serviert Dateien aus dem Upload-Ordner für PDF-Vorschau"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # =============================================================================
@@ -475,7 +442,6 @@ def serve_upload(filename):
 @app.route('/download/<int:project_id>')
 @login_required
 def download_file(project_id):
-    """Download einer Projektdatei - mit Token-System"""
     projects = load_projects()
     project = next((p for p in projects if p.get('id') == project_id), None)
     
@@ -488,7 +454,6 @@ def download_file(project_id):
     user = users.get(username, {})
     settings = load_settings()
     
-    # Admin braucht keine Tokens
     if user.get('role') != 'admin':
         download_cost = settings.get('download_cost', 1)
         
@@ -498,7 +463,6 @@ def download_file(project_id):
         
         log_activity('token_spent', f'-{download_cost} Token für Download: {project.get("title")}', username)
     
-    # Download-Zähler erhöhen
     project['downloads'] = project.get('downloads', 0) + 1
     save_projects(projects)
     
@@ -511,7 +475,14 @@ def download_file(project_id):
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload():
-    """Upload-Seite für neue Projekte - mit Token-Belohnung"""
+    """Upload-Seite für neue Projekte - mit Token-Belohnung und Upload-Recht-Prüfung"""
+    username = session.get('user_id')
+    
+    # NEU: Prüfe Upload-Recht
+    if not can_upload(username):
+        flash('Du hast keine Berechtigung zum Hochladen. Bitte wende dich an einen Administrator.', 'error')
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         description = request.form.get('description', '').strip()
@@ -540,7 +511,6 @@ def upload():
                 flash('Dateityp nicht erlaubt', 'error')
                 return redirect(url_for('upload'))
         
-        # Mindestens Datei oder URL erforderlich
         if not filename and not project_url:
             flash('Bitte lade eine Datei hoch oder gib eine Projekt-URL an.', 'error')
             return redirect(url_for('upload'))
@@ -567,8 +537,6 @@ def upload():
         projects.append(new_project)
         save_projects(projects)
         
-        # Token-Belohnung für Upload (außer Admin)
-        username = session.get('user_id')
         users = load_users()
         user = users.get(username, {})
         settings = load_settings()
@@ -593,7 +561,6 @@ def upload():
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    """Admin-Dashboard"""
     projects = load_projects()
     users = load_users()
     activity = load_activity()
@@ -614,7 +581,6 @@ def admin_dashboard():
     today = datetime.now().date().isoformat()
     views_today = len([a for a in activity if a.get('timestamp', '').startswith(today)])
     
-    # Token-Statistiken
     total_tokens = sum(u.get('tokens', 0) for u in users.values() if u.get('role') != 'admin')
     
     return render_template('admin/dashboard.html',
@@ -632,7 +598,6 @@ def admin_dashboard():
 @app.route('/admin/projekte')
 @admin_required
 def admin_projects():
-    """Projektverwaltung"""
     projects = load_projects()
     projects = sorted(projects, key=lambda x: x.get('created', ''), reverse=True)
     return render_template('admin/projects.html',
@@ -642,7 +607,6 @@ def admin_projects():
 @app.route('/admin/projekte/<int:project_id>/delete', methods=['POST'])
 @admin_required
 def admin_delete_project(project_id):
-    """Projekt löschen"""
     projects = load_projects()
     project = next((p for p in projects if p.get('id') == project_id), None)
     
@@ -653,7 +617,7 @@ def admin_delete_project(project_id):
                 try:
                     os.remove(filepath)
                 except OSError:
-                    pass # Datei vielleicht schon weg
+                    pass
         
         projects = [p for p in projects if p.get('id') != project_id]
         save_projects(projects)
@@ -667,7 +631,6 @@ def admin_delete_project(project_id):
 @app.route('/admin/benutzer')
 @admin_required
 def admin_users():
-    """Benutzerverwaltung"""
     users = load_users()
     settings = load_settings()
     return render_template('admin/users.html',
@@ -678,7 +641,6 @@ def admin_users():
 @app.route('/admin/benutzer/neu', methods=['GET', 'POST'])
 @admin_required
 def admin_create_user():
-    """Neuen Benutzer anlegen"""
     settings = load_settings()
     
     if request.method == 'POST':
@@ -706,6 +668,7 @@ def admin_create_user():
             'role': role,
             'name': name or username,
             'tokens': 999999 if role == 'admin' else tokens,
+            'can_upload': True,  # Standardmäßig darf jeder uploaden
             'created': datetime.now().isoformat()
         }
         save_users(users)
@@ -721,7 +684,6 @@ def admin_create_user():
 @app.route('/admin/benutzer/<username>/tokens', methods=['POST'])
 @admin_required
 def admin_set_user_tokens(username):
-    """Token-Anzahl für Benutzer setzen"""
     tokens = int(request.form.get('tokens', 0))
     
     users = load_users()
@@ -736,10 +698,39 @@ def admin_set_user_tokens(username):
     
     return redirect(url_for('admin_users'))
 
+# =============================================================================
+# NEU: Upload-Recht umschalten
+# =============================================================================
+
+@app.route('/admin/benutzer/<username>/toggle-upload', methods=['POST'])
+@admin_required
+def admin_toggle_upload(username):
+    """Upload-Recht für Benutzer ein/ausschalten"""
+    users = load_users()
+    
+    if username not in users:
+        flash('Benutzer nicht gefunden.', 'error')
+        return redirect(url_for('admin_users'))
+    
+    # Admin kann nicht geändert werden
+    if users[username].get('role') == 'admin':
+        flash('Admin-Rechte können nicht geändert werden.', 'error')
+        return redirect(url_for('admin_users'))
+    
+    # Toggle can_upload (Standard ist True wenn nicht gesetzt)
+    current_status = users[username].get('can_upload', True)
+    users[username]['can_upload'] = not current_status
+    save_users(users)
+    
+    new_status = "aktiviert" if users[username]['can_upload'] else "deaktiviert"
+    log_activity('upload_right_changed', f'{username}: Upload-Recht {new_status}')
+    flash(f'Upload-Recht für {username} wurde {new_status}.', 'success')
+    
+    return redirect(url_for('admin_users'))
+
 @app.route('/admin/benutzer/<username>/delete', methods=['POST'])
 @admin_required
 def admin_delete_user(username):
-    """Benutzer löschen"""
     if username == session.get('user_id'):
         flash('Du kannst dich nicht selbst löschen.', 'error')
         return redirect(url_for('admin_users'))
@@ -756,7 +747,6 @@ def admin_delete_user(username):
 @app.route('/admin/aktivitaet')
 @admin_required
 def admin_activity():
-    """Aktivitätslog"""
     activity = load_activity()
     
     action_filter = request.args.get('action')
@@ -774,7 +764,6 @@ def admin_activity():
 @app.route('/admin/einstellungen', methods=['GET', 'POST'])
 @admin_required
 def admin_settings():
-    """Admin-Einstellungen inkl. Token-System"""
     settings = load_settings()
     
     if request.method == 'POST':
@@ -831,7 +820,6 @@ def api_projects():
 @app.route('/api/user/tokens')
 @login_required
 def api_user_tokens():
-    """Gibt aktuelle Token-Anzahl zurück"""
     username = session.get('user_id')
     users = load_users()
     user = users.get(username, {})
@@ -842,7 +830,8 @@ def api_user_tokens():
         'is_admin': user.get('role') == 'admin',
         'download_cost': settings.get('download_cost', 1),
         'upload_reward': settings.get('upload_reward', 1),
-        'can_download': can_download(username)
+        'can_download': can_download(username),
+        'can_upload': can_upload(username)
     })
 
 # =============================================================================
