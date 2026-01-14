@@ -1,277 +1,160 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard · Admin{% endblock %}
-
-{% block breadcrumb_items %}
-<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
-<span class="text-indigo-600 font-medium">Admin</span>
-<i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
-<span class="text-zinc-900 font-medium">Dashboard</span>
-{% endblock %}
+{% block title %}Dashboard · Administration{% endblock %}
 
 {% block content %}
-<div class="p-6 lg:p-10 animate-fade-in">
-    
-    <!-- Header -->
+<div class="p-6 lg:p-10 max-w-7xl mx-auto animate-fade-in">
+
     <div class="flex items-center justify-between mb-8">
         <div>
-            <h1 class="font-display font-extrabold text-2xl lg:text-3xl text-zinc-900">Dashboard</h1>
-            <p class="text-zinc-500 mt-1">Übersicht über alle Aktivitäten</p>
+            <h1 class="font-display font-bold text-3xl text-zinc-900">Dashboard</h1>
+            <p class="text-zinc-500 mt-1">Überblick über die Plattform-Aktivitäten</p>
         </div>
-        <div class="flex items-center gap-2 text-sm text-zinc-500">
-            <i data-lucide="clock" class="w-4 h-4"></i>
-            <span>{{ now().strftime('%d.%m.%Y, %H:%M') if now is defined else 'Heute' }}</span>
+        <div class="flex gap-3">
+            <a href="{{ url_for('admin_projects') }}" class="px-4 py-2 bg-white border border-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-50 font-medium transition-colors">
+                Projekte verwalten
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 font-medium transition-colors">
+                Benutzer verwalten
+            </a>
         </div>
     </div>
-    
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        
-        <!-- Total Projects -->
-        <div class="bg-white rounded-xl border border-zinc-200 p-5 card-hover">
-            <div class="flex items-start justify-between">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <i data-lucide="folder" class="w-6 h-6"></i>
+                </div>
                 <div>
-                    <p class="text-sm text-zinc-500 mb-1">Projekte gesamt</p>
-                    <p class="text-3xl font-bold text-zinc-900">{{ stats.total_projects }}</p>
+                    <p class="text-sm font-medium text-zinc-500">Gesamt Projekte</p>
+                    <p class="text-2xl font-bold text-zinc-900">{{ total_projects }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-                    <i data-lucide="folder" class="w-6 h-6 text-indigo-600"></i>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-1 text-sm">
-                <span class="text-emerald-600 flex items-center gap-1">
-                    <i data-lucide="plus" class="w-3 h-3"></i>
-                    {{ stats.uploads_today }}
-                </span>
-                <span class="text-zinc-500">heute hochgeladen</span>
             </div>
         </div>
-        
-        <!-- Total Downloads -->
-        <div class="bg-white rounded-xl border border-zinc-200 p-5 card-hover">
-            <div class="flex items-start justify-between">
+
+        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <i data-lucide="download" class="w-6 h-6"></i>
+                </div>
                 <div>
-                    <p class="text-sm text-zinc-500 mb-1">Downloads gesamt</p>
-                    <p class="text-3xl font-bold text-zinc-900">{{ stats.total_downloads }}</p>
+                    <p class="text-sm font-medium text-zinc-500">Gesamt Downloads</p>
+                    <p class="text-2xl font-bold text-zinc-900">{{ total_downloads }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                    <i data-lucide="download" class="w-6 h-6 text-emerald-600"></i>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-1 text-sm">
-                <span class="text-emerald-600 flex items-center gap-1">
-                    <i data-lucide="trending-up" class="w-3 h-3"></i>
-                    {{ stats.downloads_today }}
-                </span>
-                <span class="text-zinc-500">heute</span>
             </div>
         </div>
-        
-        <!-- Total Users -->
-        <div class="bg-white rounded-xl border border-zinc-200 p-5 card-hover">
-            <div class="flex items-start justify-between">
+
+        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
                 <div>
-                    <p class="text-sm text-zinc-500 mb-1">Benutzer</p>
-                    <p class="text-3xl font-bold text-zinc-900">{{ stats.total_users }}</p>
+                    <p class="text-sm font-medium text-zinc-500">Benutzer</p>
+                    <p class="text-2xl font-bold text-zinc-900">{{ total_users }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-violet-100 flex items-center justify-center">
-                    <i data-lucide="users" class="w-6 h-6 text-violet-600"></i>
-                </div>
-            </div>
-            <div class="mt-3">
-                <a href="{{ url_for('admin_users') }}" class="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                    Verwalten
-                    <i data-lucide="arrow-right" class="w-3 h-3"></i>
-                </a>
             </div>
         </div>
-        
-        <!-- Page Views Today -->
-        <div class="bg-white rounded-xl border border-zinc-200 p-5 card-hover">
-            <div class="flex items-start justify-between">
+
+        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <i data-lucide="coins" class="w-6 h-6"></i>
+                </div>
                 <div>
-                    <p class="text-sm text-zinc-500 mb-1">Seitenaufrufe heute</p>
-                    <p class="text-3xl font-bold text-zinc-900">{{ stats.views_today }}</p>
+                    <p class="text-sm font-medium text-zinc-500">Tokens im Umlauf</p>
+                    <p class="text-2xl font-bold text-zinc-900">{{ total_tokens }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                    <i data-lucide="eye" class="w-6 h-6 text-amber-600"></i>
-                </div>
-            </div>
-            <div class="mt-3">
-                <a href="{{ url_for('admin_activity') }}" class="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                    Aktivitätslog
-                    <i data-lucide="arrow-right" class="w-3 h-3"></i>
-                </a>
             </div>
         </div>
-        
     </div>
-    
-    <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <!-- Left: Category Stats + Top Projects -->
-        <div class="lg:col-span-2 space-y-6">
-            
-            <!-- Category Stats -->
-            <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
-                    <h2 class="font-display font-bold text-lg text-zinc-900">Projekte nach Fachbereich</h2>
+        <div class="lg:col-span-2 space-y-8">
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200">
+                    <h3 class="font-bold text-zinc-900">Downloads nach Kategorie</h3>
                 </div>
                 <div class="p-6">
                     <div class="space-y-4">
-                        {% for cat_id, data in downloads_by_category.items() %}
-                        <div class="flex items-center gap-4">
-                            <span class="text-2xl w-8">{{ data.icon }}</span>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="font-medium text-zinc-900 truncate">{{ data.name }}</span>
-                                    <span class="text-sm text-zinc-500">{{ data.projects }} Projekte</span>
-                                </div>
-                                <div class="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                                    {% set max_projects = downloads_by_category.values()|map(attribute='projects')|max or 1 %}
-                                    {% set percentage = (data.projects / max_projects * 100) if max_projects > 0 else 0 %}
-                                    <div class="h-full bg-{{ data.color }}-500 rounded-full transition-all" 
-                                         style="width: {{ percentage }}%"></div>
-                                </div>
+                        {% for cat_id, data in downloads_by_cat.items() %}
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-medium text-zinc-700 flex items-center gap-2">
+                                    <span>{{ data.icon }}</span> {{ data.name }}
+                                </span>
+                                <span class="text-zinc-500">{{ data.downloads }}</span>
                             </div>
-                            <span class="text-sm font-medium text-zinc-600 w-20 text-right">
-                                {{ data.downloads }} <span class="text-zinc-400">DL</span>
-                            </span>
+                            <div class="w-full bg-zinc-100 rounded-full h-2">
+                                <div class="bg-{{ categories[cat_id].color }}-500 h-2 rounded-full" 
+                                     style="width: {{ (data.downloads / total_downloads * 100) if total_downloads > 0 else 0 }}%"></div>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
             </div>
-            
-            <!-- Top Projects -->
-            {% if top_projects %}
-            <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
-                    <h2 class="font-display font-bold text-lg text-zinc-900">Top Projekte</h2>
-                    <a href="{{ url_for('admin_projects') }}" class="text-sm text-indigo-600 hover:text-indigo-700">
-                        Alle anzeigen
-                    </a>
+
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
+                    <h3 class="font-bold text-zinc-900">Letzte Aktivitäten</h3>
+                    <a href="{{ url_for('admin_activity') }}" class="text-sm text-blue-600 hover:underline">Alle ansehen</a>
+                </div>
+                <div class="divide-y divide-zinc-100">
+                    {% for log in recent_activity %}
+                    <div class="px-6 py-3 flex items-center justify-between text-sm hover:bg-zinc-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-zinc-300"></div>
+                            <span class="font-medium text-zinc-900">{{ log.user }}</span>
+                            <span class="text-zinc-500">{{ log.action }}</span>
+                            <span class="text-zinc-400 truncate max-w-xs">{{ log.details }}</span>
+                        </div>
+                        <span class="text-zinc-400 text-xs">{{ log.timestamp[:16].replace('T', ' ') }}</span>
+                    </div>
+                    {% else %}
+                    <div class="px-6 py-8 text-center text-zinc-500">Keine Aktivitäten verzeichnet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-8">
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200">
+                    <h3 class="font-bold text-zinc-900">Top Downloads</h3>
                 </div>
                 <div class="divide-y divide-zinc-100">
                     {% for project in top_projects %}
-                    <div class="px-6 py-4 flex items-center gap-4 hover:bg-zinc-50 transition-colors">
-                        <span class="text-2xl">{{ categories[project.category].icon }}</span>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium text-zinc-900 truncate">{{ project.title }}</p>
-                            <p class="text-sm text-zinc-500">{{ project.author or 'Anonym' }}</p>
+                    <a href="{{ url_for('project_detail', project_id=project.id) }}" class="block px-6 py-3 hover:bg-zinc-50 transition-colors">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-medium text-zinc-900 line-clamp-1">{{ project.title }}</span>
+                            <span class="text-xs font-bold bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full">{{ project.downloads }}</span>
                         </div>
-                        <div class="text-right">
-                            <p class="font-bold text-zinc-900">{{ project.downloads }}</p>
-                            <p class="text-xs text-zinc-500">Downloads</p>
+                        <div class="flex items-center gap-2 text-xs text-zinc-500">
+                            <span>{{ categories[project.category].icon }}</span>
+                            <span>{{ project.author }}</span>
                         </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            
-        </div>
-        
-        <!-- Right: Recent Activity -->
-        <div class="space-y-6">
-            
-            <!-- Quick Actions -->
-            <div class="bg-white rounded-xl border border-zinc-200 p-6">
-                <h2 class="font-display font-bold text-lg text-zinc-900 mb-4">Schnellaktionen</h2>
-                <div class="space-y-2">
-                    <a href="{{ url_for('upload') }}" 
-                       class="flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all">
-                        <i data-lucide="upload" class="w-5 h-5"></i>
-                        <span class="font-medium">Projekt hochladen</span>
                     </a>
-                    <a href="{{ url_for('admin_create_user') }}" 
-                       class="flex items-center gap-3 px-4 py-3 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">
-                        <i data-lucide="user-plus" class="w-5 h-5"></i>
-                        <span class="font-medium">Benutzer anlegen</span>
-                    </a>
-                    <a href="{{ url_for('admin_projects') }}" 
-                       class="flex items-center gap-3 px-4 py-3 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 transition-all">
-                        <i data-lucide="folder-open" class="w-5 h-5"></i>
-                        <span class="font-medium">Projekte verwalten</span>
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Recent Activity -->
-            <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
-                    <h2 class="font-display font-bold text-lg text-zinc-900">Letzte Aktivitäten</h2>
-                    <a href="{{ url_for('admin_activity') }}" class="text-sm text-indigo-600 hover:text-indigo-700">
-                        Alle
-                    </a>
-                </div>
-                <div class="divide-y divide-zinc-100 max-h-96 overflow-y-auto">
-                    {% for entry in recent_activity %}
-                    <div class="px-6 py-3 hover:bg-zinc-50 transition-colors">
-                        <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                                {% if entry.action == 'login' %}bg-emerald-100 text-emerald-600
-                                {% elif entry.action == 'logout' %}bg-zinc-100 text-zinc-600
-                                {% elif entry.action == 'download' %}bg-blue-100 text-blue-600
-                                {% elif entry.action == 'project_uploaded' %}bg-violet-100 text-violet-600
-                                {% elif entry.action == 'project_deleted' %}bg-red-100 text-red-600
-                                {% elif entry.action == 'user_created' %}bg-indigo-100 text-indigo-600
-                                {% else %}bg-zinc-100 text-zinc-600{% endif %}">
-                                {% if entry.action == 'login' %}
-                                <i data-lucide="log-in" class="w-4 h-4"></i>
-                                {% elif entry.action == 'logout' %}
-                                <i data-lucide="log-out" class="w-4 h-4"></i>
-                                {% elif entry.action == 'download' %}
-                                <i data-lucide="download" class="w-4 h-4"></i>
-                                {% elif entry.action == 'project_uploaded' %}
-                                <i data-lucide="upload" class="w-4 h-4"></i>
-                                {% elif entry.action == 'project_deleted' %}
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                {% elif entry.action == 'user_created' %}
-                                <i data-lucide="user-plus" class="w-4 h-4"></i>
-                                {% else %}
-                                <i data-lucide="activity" class="w-4 h-4"></i>
-                                {% endif %}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm text-zinc-900 truncate">
-                                    <span class="font-medium">{{ entry.user }}</span>
-                                    {% if entry.action == 'login' %} angemeldet
-                                    {% elif entry.action == 'logout' %} abgemeldet
-                                    {% elif entry.action == 'download' %} hat heruntergeladen
-                                    {% elif entry.action == 'project_uploaded' %} hat hochgeladen
-                                    {% elif entry.action == 'project_deleted' %} hat gelöscht
-                                    {% elif entry.action == 'user_created' %} erstellt
-                                    {% else %}: {{ entry.action }}
-                                    {% endif %}
-                                </p>
-                                {% if entry.details %}
-                                <p class="text-xs text-zinc-500 truncate">{{ entry.details }}</p>
-                                {% endif %}
-                                <p class="text-xs text-zinc-400 mt-0.5">
-                                    {{ entry.timestamp[11:16] if entry.timestamp else '' }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
                     {% else %}
-                    <div class="px-6 py-8 text-center text-zinc-500">
-                        <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-                        <p>Noch keine Aktivitäten</p>
-                    </div>
+                    <div class="px-6 py-8 text-center text-zinc-500">Noch keine Downloads.</div>
                     {% endfor %}
                 </div>
             </div>
-            
-        </div>
-        
-    </div>
-    
-</div>
-{% endblock %}
 
-{% block scripts %}
+            <div class="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                <h3 class="font-bold text-lg mb-4">Einstellungen</h3>
+                <p class="text-indigo-100 text-sm mb-6">Verwalte Token-Preise, Kategorien und System-Einstellungen.</p>
+                <a href="{{ url_for('admin_settings') }}" class="block w-full py-2 bg-white/10 hover:bg-white/20 text-center rounded-lg backdrop-blur-sm transition-colors font-medium">
+                    Einstellungen öffnen
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 <script>
     lucide.createIcons();
 </script>
