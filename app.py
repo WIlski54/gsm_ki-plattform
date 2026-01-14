@@ -311,14 +311,24 @@ def index():
     if 'user' not in session:
         return redirect(url_for('login'))
     
-    # Neueste Projekte für Dashboard filtern (letzte 6)
+    # 1. Statistik berechnen (DIESER TEIL FEHLTE UND VERURSACHTE DEN FEHLER 500)
+    stats = {
+        'total_projects': len(projects),
+        'total_users': len(users),
+        'total_downloads': sum(p.get('downloads', 0) for p in projects),
+        'total_tokens': sum(u.get('tokens', 0) for u in users.values())
+    }
+    
+    # 2. Projekte sortieren
     sorted_projects = sorted(projects, key=lambda x: x['created'], reverse=True)
     recent_projects = sorted_projects[:6]
-    
-    # Beliebte Projekte (nach Downloads)
     popular_projects = sorted(projects, key=lambda x: x.get('downloads', 0), reverse=True)[:3]
     
-    return render_template('index.html', recent_projects=recent_projects, popular_projects=popular_projects)
+    # 3. Alles an das Template senden
+    return render_template('index.html', 
+                           recent_projects=recent_projects, 
+                           popular_projects=popular_projects,
+                           stats=stats) # <--- Hier wird 'stats' übergeben!
 
 @app.route('/category/<category_id>')
 def category(category_id):
