@@ -79,7 +79,7 @@
     </style>
 </head>
 
-{% set current_user = users.get(session.get('user')) if session.get('user') else None %}
+{# ENTFERNT: Die falsche Zeile die current_user überschrieben hat #}
 
 <body class="h-full bg-surface-50">
     <div class="flex h-full">
@@ -121,7 +121,8 @@
                 </a>
                 {% endfor %}
                 
-                {% if current_user and can_upload %}
+                {# KORRIGIERT: can_user_upload statt can_upload #}
+                {% if current_user and can_user_upload %}
                 <div class="pt-4 mt-4 border-t border-white/10">
                     <a href="{{ url_for('upload') }}" 
                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20
@@ -197,10 +198,11 @@
                 
                 <div x-show="sidebarOpen" class="flex items-center gap-3 px-3 py-2 mb-2">
                     <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold">
-                        {{ current_user.name[0].upper() if current_user.name else session.user[0].upper() }}
+                        {# KORRIGIERT: current_user.get() und session.get() #}
+                        {{ current_user.get('name', '?')[0].upper() }}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">{{ current_user.name or session.user }}</p>
+                        <p class="text-sm font-medium text-white truncate">{{ current_user.get('name', session.get('user_id', 'Benutzer')) }}</p>
                         <p class="text-xs text-zinc-400">{{ 'Admin' if is_admin else 'Benutzer' }}</p>
                     </div>
                 </div>
