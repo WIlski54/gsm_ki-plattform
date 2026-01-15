@@ -355,6 +355,49 @@ def logout():
     return redirect(url_for('login'))
 
 # =============================================================================
+# Profil (für alle User)
+# =============================================================================
+
+@app.route('/profil', methods=['GET', 'POST'])
+@login_required
+def profil():
+    """Profilseite für alle User - Passwort ändern und Account-Infos"""
+    username = session.get('user_id')
+    users = load_users()
+    user = users.get(username, {})
+    
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        # Validierung
+        if not check_password_hash(user.get('password', ''), current_password):
+            flash('Aktuelles Passwort ist falsch.', 'error')
+        elif new_password != confirm_password:
+            flash('Die neuen Passwörter stimmen nicht überein.', 'error')
+        elif len(new_password) < 6:
+            flash('Das neue Passwort muss mindestens 6 Zeichen haben.', 'error')
+        else:
+            # Passwort aktualisieren
+            users[username]['password'] = generate_password_hash(new_password)
+            save_users(users)
+            log_activity('password_changed', 'Passwort geändert', username)
+            flash('Dein Passwort wurde erfolgreich geändert.', 'success')
+            return redirect(url_for('profil'))
+    
+    # Statistiken für den User
+    projects = load_projects()
+    user_projects = [p for p in projects if p.get('uploaded_by') == username]
+    
+    return render_template('profil.html',
+                         categories=CATEGORIES,
+                         user=user,
+                         username=username,
+                         user_projects_count=len(user_projects),
+                         user_downloads=sum(p.get('downloads', 0) for p in user_projects))
+
+# =============================================================================
 # Hauptseiten
 # =============================================================================
 

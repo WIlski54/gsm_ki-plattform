@@ -206,6 +206,12 @@
                         <p class="text-xs text-zinc-400">{{ 'Admin' if is_admin else 'Benutzer' }}</p>
                     </div>
                 </div>
+                <a href="{{ url_for('profil') }}" 
+                   class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all
+                          {% if request.endpoint == 'profil' %}bg-white/10 text-white{% endif %}">
+                    <i data-lucide="user-cog" class="w-5 h-5"></i>
+                    <span x-show="sidebarOpen" class="text-sm">Profil & Passwort</span>
+                </a>
                 <a href="{{ url_for('logout') }}" 
                    class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
                     <i data-lucide="log-out" class="w-5 h-5"></i>

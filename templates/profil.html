@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Mein Profil - KI-Projektplattform{% endblock %}
+
+{% block breadcrumb_items %}
+<span class="text-zinc-300">/</span>
+<span class="text-zinc-900 font-medium">Mein Profil</span>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-4xl mx-auto">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="font-display text-3xl font-bold text-zinc-900">Mein Profil</h1>
+        <p class="text-zinc-500 mt-1">Verwalte dein Konto und ändere dein Passwort</p>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Account-Informationen -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                        <i data-lucide="user" class="w-5 h-5 text-indigo-600"></i>
+                        Account-Infos
+                    </h2>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Avatar -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg">
+                            {{ user.get('name', username)[0].upper() }}
+                        </div>
+                    </div>
+                    
+                    <dl class="space-y-4">
+                        <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                            <dt class="text-sm text-zinc-500 flex items-center gap-2">
+                                <i data-lucide="at-sign" class="w-4 h-4"></i>
+                                Benutzername
+                            </dt>
+                            <dd class="text-sm font-medium text-zinc-900">{{ username }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                            <dt class="text-sm text-zinc-500 flex items-center gap-2">
+                                <i data-lucide="user" class="w-4 h-4"></i>
+                                Anzeigename
+                            </dt>
+                            <dd class="text-sm font-medium text-zinc-900">{{ user.get('name', username) }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                            <dt class="text-sm text-zinc-500 flex items-center gap-2">
+                                <i data-lucide="shield" class="w-4 h-4"></i>
+                                Rolle
+                            </dt>
+                            <dd>
+                                {% if user.get('role') == 'admin' %}
+                                <span class="px-2 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium">
+                                    Administrator
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-medium">
+                                    Benutzer
+                                </span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-zinc-100">
+                            <dt class="text-sm text-zinc-500 flex items-center gap-2">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                                Dabei seit
+                            </dt>
+                            <dd class="text-sm font-medium text-zinc-900">
+                                {{ user.get('created', '')[:10] if user.get('created') else 'Unbekannt' }}
+                            </dd>
+                        </div>
+                        {% if user.get('role') != 'admin' %}
+                        <div class="flex items-center justify-between py-2">
+                            <dt class="text-sm text-zinc-500 flex items-center gap-2">
+                                <span class="text-lg">🪙</span>
+                                Tokens
+                            </dt>
+                            <dd class="text-lg font-bold text-amber-600">{{ user.get('tokens', 0) }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+            
+            <!-- Statistiken -->
+            <div class="mt-6 bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200">
+                    <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 text-zinc-400"></i>
+                        Deine Statistiken
+                    </h2>
+                </div>
+                <div class="p-6 grid grid-cols-2 gap-4">
+                    <div class="text-center p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div class="text-2xl font-bold text-emerald-600">{{ user_projects_count }}</div>
+                        <div class="text-xs text-emerald-700 mt-1">Hochgeladen</div>
+                    </div>
+                    <div class="text-center p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div class="text-2xl font-bold text-blue-600">{{ user_downloads }}</div>
+                        <div class="text-xs text-blue-700 mt-1">Downloads</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Passwort ändern -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-200">
+                    <h2 class="font-display font-bold text-lg text-zinc-900 flex items-center gap-2">
+                        <i data-lucide="key" class="w-5 h-5 text-zinc-400"></i>
+                        Passwort ändern
+                    </h2>
+                    <p class="text-sm text-zinc-500 mt-1">Wähle ein sicheres Passwort mit mindestens 6 Zeichen</p>
+                </div>
+                
+                <form action="{{ url_for('profil') }}" method="POST" class="p-6 space-y-5">
+                    
+                    <!-- Aktuelles Passwort -->
+                    <div>
+                        <label for="current_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                            Aktuelles Passwort
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="current_password" name="current_password" required
+                                   class="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                   placeholder="Dein aktuelles Passwort">
+                            <i data-lucide="lock" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Neues Passwort -->
+                    <div>
+                        <label for="new_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                            Neues Passwort
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="new_password" name="new_password" required minlength="6"
+                                   class="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                   placeholder="Mindestens 6 Zeichen">
+                            <i data-lucide="key" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                        </div>
+                        <p class="text-xs text-zinc-500 mt-1.5 flex items-center gap-1">
+                            <i data-lucide="info" class="w-3 h-3"></i>
+                            Mindestens 6 Zeichen
+                        </p>
+                    </div>
+                    
+                    <!-- Passwort bestätigen -->
+                    <div>
+                        <label for="confirm_password" class="block text-sm font-semibold text-zinc-700 mb-2">
+                            Neues Passwort bestätigen
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="confirm_password" name="confirm_password" required minlength="6"
+                                   class="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                   placeholder="Passwort wiederholen">
+                            <i data-lucide="check-circle" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit -->
+                    <div class="pt-4 border-t border-zinc-100">
+                        <button type="submit" 
+                                class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            Passwort ändern
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Hinweis-Box -->
+            <div class="mt-6 p-5 rounded-xl bg-amber-50 border border-amber-200">
+                <div class="flex gap-3">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <h3 class="font-semibold text-amber-800">Passwort-Tipps</h3>
+                        <ul class="mt-2 text-sm text-amber-700 space-y-1">
+                            <li>• Verwende eine Kombination aus Buchstaben, Zahlen und Sonderzeichen</li>
+                            <li>• Nutze keine leicht zu erratenden Passwörter wie "123456" oder "passwort"</li>
+                            <li>• Verwende für jeden Dienst ein anderes Passwort</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
